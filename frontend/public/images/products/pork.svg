@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <rect width="100%" height="100%" fill="#FBFDFB" />
+  <g transform="translate(50, 80)">
+    <!-- Tray base -->
+    <rect x="0" y="20" width="300" height="200" rx="16" fill="#F5F5F5" stroke="#E0E0E0" stroke-width="3" />
+    <!-- Meat slices layered -->
+    <path d="M30,70 Q150,55 270,70 L270,105 Q150,90 30,105 Z" fill="#EF9A9A" />
+    <path d="M30,85 Q150,70 270,85 L270,95 Q150,80 30,95 Z" fill="#FFEBEE" />
+    
+    <path d="M30,115 Q150,100 270,115 L270,150 Q150,135 30,150 Z" fill="#E57373" />
+    <path d="M30,130 Q150,115 270,130 L270,140 Q150,125 30,140 Z" fill="#FFEBEE" />
+
+    <path d="M30,160 Q150,145 270,160 L270,195 Q150,180 30,195 Z" fill="#EF5350" />
+    <path d="M30,175 Q150,160 270,175 L270,185 Q150,170 30,185 Z" fill="#FFEBEE" />
+  </g>
+</svg>

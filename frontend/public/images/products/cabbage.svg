@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="cabbageGrad" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#C8E6C9" />
+      <stop offset="45%" stop-color="#81C784" />
+      <stop offset="85%" stop-color="#388E3C" />
+      <stop offset="100%" stop-color="#1B5E20" />
+    </radialGradient>
+    <radialGradient id="leafGrad" cx="30%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#A5D6A7" />
+      <stop offset="70%" stop-color="#4CAF50" />
+      <stop offset="100%" stop-color="#2E7D32" />
+    </radialGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-opacity="0.15" />
+    </filter>
+  </defs>
+  
+  <rect width="100%" height="100%" fill="#F9FBF9" />
+  
+  <!-- Outer leaf 1 -->
+  <path d="M70,220 C60,130 140,70 230,80 C320,90 350,180 330,260 C310,330 220,350 140,330 C80,310 75,260 70,220 Z" 
+        fill="url(#leafGrad)" filter="url(#shadow)" opacity="0.9" />
+  
+  <!-- Outer leaf 2 -->
+  <path d="M110,120 C180,60 280,70 320,150 C360,230 310,310 240,325 C160,340 100,280 90,200 C85,150 95,130 110,120 Z" 
+        fill="#43A047" opacity="0.85" />
+        
+  <!-- Center Cabbage Sphere -->
+  <circle cx="200" cy="205" r="115" fill="url(#cabbageGrad)" />
+  
+  <!-- Cabbage leaf veins / folds -->
+  <path d="M130,170 Q200,210 265,160" stroke="#E8F5E9" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.75" />
+  <path d="M125,230 Q200,260 270,225" stroke="#E8F5E9" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.7" />
+  <path d="M160,130 Q195,190 190,280" stroke="#E8F5E9" stroke-width="7" stroke-linecap="round" fill="none" opacity="0.8" />
+  <path d="M190,200 Q240,230 280,240" stroke="#E8F5E9" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.6" />
+  <path d="M140,260 Q170,290 220,305" stroke="#E8F5E9" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.6" />
+  
+  <!-- Highlights -->
+  <ellipse cx="165" cy="155" rx="35" ry="20" fill="#FFFFFF" opacity="0.25" transform="rotate(-20 165 155)" />
+</svg>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="pumpkinGrad" cx="45%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#FFD54F" />
+      <stop offset="40%" stop-color="#FFA726" />
+      <stop offset="80%" stop-color="#FB8C00" />
+      <stop offset="100%" stop-color="#E65100" />
+    </radialGradient>
+    <filter id="pShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#FBFDFB" />
+  
+  <!-- Stem & Blossom -->
+  <path d="M200,95 C195,65 175,50 160,45 C158,55 170,75 185,100 Z" fill="#33691E" />
+  <path d="M190,95 C195,85 205,80 215,80 C210,95 200,105 190,110 Z" fill="#558B2F" />
+
+  <!-- Pumpkin Lobes -->
+  <!-- Outer lobes -->
+  <ellipse cx="120" cy="225" rx="55" ry="95" fill="#EF6C00" filter="url(#pShadow)" transform="rotate(-15 120 225)" />
+  <ellipse cx="280" cy="225" rx="55" ry="95" fill="#EF6C00" filter="url(#pShadow)" transform="rotate(15 280 225)" />
+  
+  <!-- Mid lobes -->
+  <ellipse cx="155" cy="230" rx="55" ry="105" fill="url(#pumpkinGrad)" transform="rotate(-7 155 230)" />
+  <ellipse cx="245" cy="230" rx="55" ry="105" fill="url(#pumpkinGrad)" transform="rotate(7 245 230)" />
+  
+  <!-- Center lobe -->
+  <ellipse cx="200" cy="235" rx="55" ry="110" fill="url(#pumpkinGrad)" />
+
+  <!-- Green tip blossom remnant of baby pumpkin -->
+  <path d="M185,340 Q200,358 215,340 Q200,348 185,340 Z" fill="#689F38" />
+
+  <!-- Highlights -->
+  <ellipse cx="170" cy="180" rx="20" ry="40" fill="#FFF8E1" opacity="0.3" transform="rotate(-10 170 180)" />
+</svg>

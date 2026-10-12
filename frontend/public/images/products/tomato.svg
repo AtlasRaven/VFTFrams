@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <defs>
+    <radialGradient id="tomGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FF8A80" />
+      <stop offset="35%" stop-color="#FF5252" />
+      <stop offset="75%" stop-color="#D50000" />
+      <stop offset="100%" stop-color="#880E4F" />
+    </radialGradient>
+    <filter id="tomShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#FBFDFB" />
+
+  <!-- Tomato Body -->
+  <circle cx="200" cy="225" r="125" fill="url(#tomGrad)" filter="url(#tomShadow)" />
+
+  <!-- Calyx Leaves -->
+  <path d="M200,105 L215,85 L205,105 L235,95 L215,115 L245,125 L215,125 L225,145 L205,128 L195,150 L192,128 L170,140 L185,122 L155,118 L185,112 L170,90 L192,105 Z" fill="#2E7D32" />
+  <!-- Stem -->
+  <path d="M200,105 C195,85 185,75 170,68 C173,78 185,88 195,105 Z" fill="#1B5E20" />
+
+  <!-- Specular highlight -->
+  <ellipse cx="150" cy="175" rx="30" ry="18" fill="#FFFFFF" opacity="0.45" transform="rotate(-30 150 175)" />
+  <circle cx="178" cy="198" r="8" fill="#FFFFFF" opacity="0.3" />
+</svg>

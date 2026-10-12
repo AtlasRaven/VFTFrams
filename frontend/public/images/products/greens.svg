@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%">
+  <rect width="100%" height="100%" fill="#FBFDFB" />
+  <g transform="translate(0, 20)">
+    <!-- Leaves bouquet -->
+    <path d="M190,320 C140,240 100,160 120,80 C150,70 190,110 195,320 Z" fill="#66BB6A" opacity="0.9" />
+    <path d="M210,320 C260,240 300,160 280,80 C250,70 210,110 205,320 Z" fill="#4CAF50" opacity="0.9" />
+    <path d="M195,320 C175,200 160,110 200,60 C240,110 225,200 205,320 Z" fill="#81C784" />
+    <!-- Stems -->
+    <path d="M200,320 L200,140" stroke="#E8F5E9" stroke-width="6" stroke-linecap="round" />
+    <path d="M198,280 Q160,200 140,140" stroke="#E8F5E9" stroke-width="4" stroke-linecap="round" fill="none" />
+    <path d="M202,280 Q240,200 260,140" stroke="#E8F5E9" stroke-width="4" stroke-linecap="round" fill="none" />
+    <!-- Tie band -->
+    <rect x="175" y="270" width="50" height="16" rx="4" fill="#D32F2F" />
+  </g>
+</svg>

@@ -1,0 +1,161 @@
+'use client';
+
+import React, { useState, Suspense } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Sprout, LogIn, UserPlus, CheckCircle2 } from 'lucide-react';
+
+function AuthContent() {
+  const searchParams = useSearchParams();
+  const initialMode = searchParams.get('mode') === 'register' ? 'register' : 'login';
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+  });
+
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mode === 'login') {
+      setMessage('Đăng nhập thành công! Chào mừng bạn trở lại với VFT Farms.');
+    } else {
+      setMessage('Đăng ký tài khoản thành công! Bạn có thể bắt đầu mua sắm ngay.');
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto px-4 py-14">
+      <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm space-y-6">
+        {/* Header Icon */}
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 rounded-full bg-[#E8F5E9] text-[#2E7D32] flex items-center justify-center mx-auto">
+            <Sprout className="w-7 h-7" />
+          </div>
+          <h1 className="text-2xl font-black text-gray-900">
+            {mode === 'login' ? 'Đăng Nhập Tài Khoản' : 'Tạo Tài Khoản Mới'}
+          </h1>
+          <p className="text-xs text-gray-500">
+            Cửa hàng nông sản & thực phẩm tươi sạch VFT Farms
+          </p>
+        </div>
+
+        {/* Tab switcher */}
+        <div className="grid grid-cols-2 bg-gray-100 p-1 rounded-lg text-sm font-semibold">
+          <button
+            onClick={() => { setMode('login'); setMessage(null); }}
+            className={`py-2 rounded-md transition-all cursor-pointer ${
+              mode === 'login' ? 'bg-white text-[#2E7D32] shadow-xs' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Đăng nhập
+          </button>
+          <button
+            onClick={() => { setMode('register'); setMessage(null); }}
+            className={`py-2 rounded-md transition-all cursor-pointer ${
+              mode === 'register' ? 'bg-white text-[#2E7D32] shadow-xs' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Đăng ký
+          </button>
+        </div>
+
+        {message && (
+          <div className="bg-[#E8F5E9] border border-[#C8E6C9] text-[#2E7D32] p-3 rounded-lg text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{message}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === 'register' && (
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                Họ và tên
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                placeholder="Nguyễn Văn A"
+                className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2E7D32] focus:border-[#2E7D32]"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+              Địa chỉ Email
+            </label>
+            <input
+              type="email"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="email@example.com"
+              className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2E7D32] focus:border-[#2E7D32]"
+            />
+          </div>
+
+          {mode === 'register' && (
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                Số điện thoại
+              </label>
+              <input
+                type="tel"
+                required
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="0912345678"
+                className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2E7D32] focus:border-[#2E7D32]"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+              Mật khẩu
+            </label>
+            <input
+              type="password"
+              required
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder="••••••••"
+              className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2E7D32] focus:border-[#2E7D32]"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-[#2E7D32] hover:bg-[#1B5E20] text-white py-3 rounded-lg font-bold text-sm shadow-md transition-all cursor-pointer"
+          >
+            {mode === 'login' ? 'Đăng Nhập' : 'Tạo Tài Khoản'}
+          </button>
+        </form>
+
+        <div className="text-center pt-2 text-xs text-gray-500">
+          Bằng việc tiếp tục, bạn đồng ý với{' '}
+          <Link href="/policies/chinh-sach-ban-hang" className="text-[#2E7D32] underline">
+            Điều khoản & Chính sách bán hàng
+          </Link>{' '}
+          của VFT Farms.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-gray-500">Đang tải...</div>}>
+      <AuthContent />
+    </Suspense>
+  );
+}
