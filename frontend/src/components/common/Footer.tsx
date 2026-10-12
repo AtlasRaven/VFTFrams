@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Sprout, Phone, Mail, MapPin, ShieldCheck, Download, Smartphone } from 'lucide-react';
+import { Sprout, Phone, Mail, MapPin, ShieldCheck, Smartphone } from 'lucide-react';
 import { MOCK_POLICIES } from '../../data/mockData';
 
 export const Footer: React.FC = () => {

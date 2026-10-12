@@ -1,24 +1,108 @@
-import axios from 'axios';
-import { Product, Category, Policy, Order } from '../types';
-import { MOCK_PRODUCTS, MOCK_CATEGORIES, MOCK_POLICIES } from '../data/mockData';
+import axios from "axios";
+import { Product, Category, Policy, Order, User } from "../types";
+import { useAuthStore } from "../store/useAuthStore";
+import {
+  MOCK_PRODUCTS,
+  MOCK_CATEGORIES,
+  MOCK_POLICIES,
+} from "../data/mockData";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+
+function warnApiFallback(resource: string, error: unknown) {
+  const reason = axios.isAxiosError(error) ? error.message : "Unknown error";
+  console.warn(`${resource} API failed; showing fallback data. ${reason}`);
+}
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 5000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
+apiClient.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = useAuthStore.getState().token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
+interface AuthResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+}
+
+interface ApiEnvelope<T> {
+  success: boolean;
+  data: T;
+  message: string;
+}
+
+export const authService = {
+  login: async (credentials: {
+    email: string;
+    password: string;
+  }): Promise<AuthResponse> => {
+    const response = await apiClient.post<ApiEnvelope<AuthResponse>>(
+      "/auth/login",
+      credentials,
+    );
+    return response.data.data;
+  },
+
+  register: async (data: {
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    password: string;
+  }): Promise<{ user: User }> => {
+    const response = await apiClient.post<ApiEnvelope<{ user: User }>>(
+      "/auth/register",
+      data,
+    );
+    return response.data.data;
+  },
+
+  getAdminDashboard: async (): Promise<{
+    user: User;
+    accessLevel: string;
+    message: string;
+  }> => {
+    const response = await apiClient.get<
+      ApiEnvelope<{
+        user: User;
+        accessLevel: string;
+        message: string;
+      }>
+    >("/admin/dashboard");
+    return response.data.data;
+  },
+};
+
 export const productService = {
-  getAll: async (params?: { categoryId?: number; isBestSeller?: boolean; search?: string }): Promise<Product[]> => {
+  getAll: async (params?: {
+    categoryId?: number;
+    isBestSeller?: boolean;
+    search?: string;
+  }): Promise<Product[]> => {
     try {
-      const response = await apiClient.get('/products', { params });
+      const response = await apiClient.get("/products", {
+        params: {
+          category_id: params?.categoryId,
+          search: params?.search,
+          is_featured: params?.isBestSeller,
+        },
+      });
       return response.data.data;
-    } catch {
-      // Graceful fallback to mock data
+    } catch (error) {
+      warnApiFallback("Products", error);
       let list = [...MOCK_PRODUCTS];
       if (params?.categoryId) {
         list = list.filter((p) => p.categoryId === params.categoryId);
@@ -34,22 +118,44 @@ export const productService = {
     }
   },
 
+  getFeatured: async (): Promise<Product[]> => {
+    try {
+      const response = await apiClient.get("/products/featured");
+      return response.data.data;
+    } catch (error) {
+      warnApiFallback("Featured products", error);
+      return MOCK_PRODUCTS.filter((p) => p.isBestSeller);
+    }
+  },
+
   getBySlug: async (slug: string): Promise<Product | undefined> => {
     try {
-      const response = await apiClient.get(`/products/slug/${slug}`);
+      const response = await apiClient.get(`/products/${slug}`);
       return response.data.data;
-    } catch {
+    } catch (error) {
+      warnApiFallback("Product detail", error);
       return MOCK_PRODUCTS.find((p) => p.slug === slug);
     }
   },
 };
 
 export const categoryService = {
+  getTree: async (): Promise<Category[]> => {
+    try {
+      const response = await apiClient.get("/categories/tree");
+      return response.data.data;
+    } catch (error) {
+      warnApiFallback("Category tree", error);
+      return MOCK_CATEGORIES;
+    }
+  },
+
   getAll: async (): Promise<Category[]> => {
     try {
-      const response = await apiClient.get('/categories/tree');
+      const response = await apiClient.get("/categories");
       return response.data.data;
-    } catch {
+    } catch (error) {
+      warnApiFallback("Categories", error);
       return MOCK_CATEGORIES;
     }
   },
@@ -58,18 +164,20 @@ export const categoryService = {
 export const policyService = {
   getAll: async (): Promise<Policy[]> => {
     try {
-      const response = await apiClient.get('/policies');
+      const response = await apiClient.get("/policies");
       return response.data.data;
-    } catch {
+    } catch (error) {
+      warnApiFallback("Policies", error);
       return MOCK_POLICIES;
     }
   },
 
   getBySlug: async (slug: string): Promise<Policy | undefined> => {
     try {
-      const response = await apiClient.get(`/policies/slug/${slug}`);
+      const response = await apiClient.get(`/policies/${slug}`);
       return response.data.data;
-    } catch {
+    } catch (error) {
+      warnApiFallback("Policy detail", error);
       return MOCK_POLICIES.find((p) => p.slug === slug);
     }
   },
@@ -81,7 +189,7 @@ export const orderService = {
     recipientPhone: string;
     shippingAddress: string;
     notes?: string;
-    paymentMethod: string;
+    paymentMethod: Order["paymentMethod"];
     items: {
       productId: number;
       productName: string;
@@ -90,29 +198,27 @@ export const orderService = {
       totalPrice: number;
     }[];
   }): Promise<Order> => {
+    const response = await apiClient.post<ApiEnvelope<Order>>("/orders", data);
+    return response.data.data;
+  },
+
+  getAll: async (): Promise<Order[]> => {
     try {
-      const response = await apiClient.post('/orders', data);
+      const response = await apiClient.get("/orders");
       return response.data.data;
-    } catch {
-      // Mock successful order return
-      const subtotal = data.items.reduce((s, i) => s + i.totalPrice, 0);
-      const shippingFee = subtotal >= 300000 ? 0 : 25000;
-      return {
-        id: Date.now(),
-        orderCode: `VFT-${Date.now().toString().slice(-6)}`,
-        recipientName: data.recipientName,
-        recipientPhone: data.recipientPhone,
-        shippingAddress: data.shippingAddress,
-        notes: data.notes,
-        subtotal,
-        shippingFee,
-        totalAmount: subtotal + shippingFee,
-        paymentMethod: data.paymentMethod as any,
-        paymentStatus: data.paymentMethod === 'COD' ? 'PENDING' : 'PAID',
-        orderStatus: 'CONFIRMED',
-        items: data.items,
-        createdAt: new Date().toISOString(),
-      };
+    } catch (error) {
+      warnApiFallback("Order history", error);
+      return [];
+    }
+  },
+
+  getByCode: async (code: string): Promise<Order | undefined> => {
+    try {
+      const response = await apiClient.get(`/orders/${code}`);
+      return response.data.data;
+    } catch (error) {
+      warnApiFallback("Order lookup", error);
+      return undefined;
     }
   },
 };

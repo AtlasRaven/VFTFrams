@@ -50,7 +50,7 @@ export interface User {
   fullName: string;
   email: string;
   phoneNumber: string;
-  role: 'CUSTOMER' | 'ADMIN';
+  role: 'CUSTOMER' | 'ADMIN' | 'STAFF';
   avatarUrl?: string;
 }
 
