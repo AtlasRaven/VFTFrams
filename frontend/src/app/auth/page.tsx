@@ -39,12 +39,9 @@ function AuthContent() {
           email: formData.email.trim(),
           password: formData.password,
         });
-        if (session.user.role !== "ADMIN") {
-          throw new Error("Tài khoản này chưa được cấp quyền quản trị.");
-        }
-        login(session.accessToken, session.user);
+        login(session.accessToken, session.user, session.refreshToken);
         setMessage(`Đăng nhập thành công. Xin chào ${session.user.fullName}!`);
-        router.replace("/admin");
+        router.replace(session.user.role === "ADMIN" ? "/admin" : "/");
         return;
       }
 

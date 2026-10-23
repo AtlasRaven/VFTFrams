@@ -89,18 +89,24 @@ export default function CheckoutPage() {
           </strong>
           . Chúng tôi sẽ liên hệ xác nhận và giao hàng nhanh chóng!
         </p>
-        <div className="pt-4 flex justify-center gap-4">
+        <div className="pt-4 flex flex-wrap justify-center gap-3">
           <Link
-            href="/"
-            className="bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-bold py-3 px-6 rounded-lg text-sm shadow-md transition-colors"
+            href="/orders"
+            className="bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-bold py-3 px-6 rounded-xl text-sm shadow-md transition-colors"
           >
-            Về Trang Chủ
+            Theo Dõi Đơn Hàng Của Tôi
           </Link>
           <Link
             href="/products"
-            className="border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-lg text-sm transition-colors"
+            className="border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-xl text-sm transition-colors"
           >
             Tiếp Tục Mua Sắm
+          </Link>
+          <Link
+            href="/"
+            className="border border-gray-200 text-gray-600 hover:text-gray-900 font-semibold py-3 px-6 rounded-xl text-sm transition-colors"
+          >
+            Về Trang Chủ
           </Link>
         </div>
       </div>

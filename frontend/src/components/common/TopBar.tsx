@@ -39,23 +39,68 @@ export const TopBar: React.FC = () => {
 
         {/* Right: Hotline & Account Dropdown */}
         <div className="hidden md:flex items-center gap-6 shrink-0">
-          {/* Hotline */}
-          <a
-            href="tel:02432029199"
-            className="flex items-center gap-2 group transition-colors"
-          >
-            <div className="w-9 h-9 rounded-full bg-[#E8F5E9] flex items-center justify-center text-[#2E7D32] group-hover:bg-[#2E7D32] group-hover:text-white transition-all shadow-xs">
-              <Phone className="w-4 h-4 stroke-[2.2]" />
+          {/* Hotline with Hover Popover */}
+          <div className="relative group">
+            <a
+              href="tel:02432029199"
+              className="flex items-center gap-2 group transition-colors py-1 cursor-pointer"
+            >
+              <div className="w-9 h-9 rounded-full bg-[#E8F5E9] flex items-center justify-center text-[#2E7D32] group-hover:bg-[#2E7D32] group-hover:text-white transition-all shadow-xs">
+                <Phone className="w-4 h-4 stroke-[2.2]" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[11px] text-gray-500 font-medium leading-none">
+                  Hotline hỗ trợ
+                </span>
+                <span className="text-sm font-bold text-gray-900 group-hover:text-[#2E7D32] transition-colors">
+                  02432029199
+                </span>
+              </div>
+            </a>
+
+            {/* Hover Popover */}
+            <div className="absolute right-0 top-full pt-2 w-72 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="rounded-2xl bg-white p-4 shadow-xl border border-gray-100 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                  <span className="text-xs font-bold text-gray-900">Liên Hệ Trực Tiếp</span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Online 24/7
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-xs">
+                  <a
+                    href="tel:02432029199"
+                    className="flex items-center justify-between p-2 rounded-xl hover:bg-emerald-50 text-gray-700 hover:text-[#2E7D32] transition-colors"
+                  >
+                    <span>Tổng đài miễn phí:</span>
+                    <strong className="text-emerald-700">024.3202.9199</strong>
+                  </a>
+                  <a
+                    href="https://zalo.me/0910000009"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-2 rounded-xl hover:bg-blue-50 text-gray-700 hover:text-blue-700 transition-colors"
+                  >
+                    <span>Zalo CSKH nhanh:</span>
+                    <strong className="text-blue-700">0910.000.009</strong>
+                  </a>
+                  <a
+                    href="mailto:hotro@vftfarms.vn"
+                    className="flex items-center justify-between p-2 rounded-xl hover:bg-purple-50 text-gray-700 hover:text-purple-700 transition-colors"
+                  >
+                    <span>Email hỗ trợ:</span>
+                    <strong className="text-purple-700">hotro@vftfarms.vn</strong>
+                  </a>
+                </div>
+
+                <div className="pt-2 border-t border-gray-100 text-[10px] text-gray-400">
+                  Phục vụ giao nông sản tươi từ 7h00 - 21h00 mỗi ngày.
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-[11px] text-gray-500 font-medium leading-none">
-                Hotline hỗ trợ
-              </span>
-              <span className="text-sm font-bold text-gray-900 group-hover:text-[#2E7D32] transition-colors">
-                02432029199
-              </span>
-            </div>
-          </a>
+          </div>
 
           {/* Account Dropdown */}
           <AccountDropdown />

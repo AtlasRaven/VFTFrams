@@ -72,7 +72,7 @@ export const NavBar: React.FC = () => {
             </Link>
 
             <Link
-              href="/#tin-tuc"
+              href="/news"
               className="text-sm font-semibold text-gray-800 hover:text-[#2E7D32] transition-colors py-2"
             >
               Tin tức
@@ -135,6 +135,13 @@ export const NavBar: React.FC = () => {
             className="block px-3 py-2 text-base font-semibold text-gray-800 hover:bg-gray-50 rounded-md"
           >
             Chính sách
+          </Link>
+          <Link
+            href="/news"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 text-base font-semibold text-gray-800 hover:bg-gray-50 rounded-md"
+          >
+            Tin tức & Cẩm nang
           </Link>
           <Link
             href="/#gioi-thieu"

@@ -169,6 +169,34 @@ export default function AdminPage() {
             Danh mục sản phẩm
             <ArrowUpRight className="h-4 w-4" />
           </Link>
+          <Link
+            href="/admin/orders"
+            className="mt-3 flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 transition-colors hover:border-[#C8E6C9] hover:bg-[#F7FCF7] hover:text-[#2E7D32]"
+          >
+            Quản lý đơn hàng
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/admin/news"
+            className="mt-3 flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 transition-colors hover:border-[#C8E6C9] hover:bg-[#F7FCF7] hover:text-[#2E7D32]"
+          >
+            Quản lý tin tức & bài viết
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/admin/products"
+            className="mt-3 flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 transition-colors hover:border-[#C8E6C9] hover:bg-[#F7FCF7] hover:text-[#2E7D32]"
+          >
+            Quản lý sản phẩm
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/admin/users"
+            className="mt-3 flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 text-sm font-semibold text-gray-700 transition-colors hover:border-[#C8E6C9] hover:bg-[#F7FCF7] hover:text-[#2E7D32]"
+          >
+            Quản lý tài khoản
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     </section>

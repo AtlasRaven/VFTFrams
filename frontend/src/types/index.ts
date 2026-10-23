@@ -52,6 +52,7 @@ export interface User {
   phoneNumber: string;
   role: 'CUSTOMER' | 'ADMIN' | 'STAFF';
   avatarUrl?: string;
+  isActive?: boolean;
 }
 
 export interface OrderItem {
@@ -75,6 +76,80 @@ export interface Order {
   paymentMethod: 'COD' | 'BANK_TRANSFER' | 'VNPAY' | 'MOMO';
   paymentStatus: string;
   orderStatus: string;
+  proofImageUrl?: string;
+  proofNote?: string;
   items: OrderItem[];
   createdAt: string;
+  updatedAt?: string;
 }
+
+export interface TraceabilityInfo {
+  productId: number;
+  productName: string;
+  origin: string;
+  certification: string;
+  batchCode: string;
+  hashSHA256: string;
+  verifiedAt: string;
+  harvestStandard: string;
+}
+
+export interface AdminDashboardStatistics {
+  revenue: {
+    total: number;
+    formatted: string;
+  };
+  orders: {
+    total: number;
+    pending: number;
+    shipping: number;
+    completed: number;
+  };
+  customers: {
+    total: number;
+  };
+  products: {
+    total: number;
+  };
+  lowStockAlerts: Array<{
+    id: number;
+    name: string;
+    stock_quantity: number;
+    unit: string;
+  }>;
+  topSellingProducts: Array<{
+    id: number;
+    name: string;
+    total_sold: number;
+  }>;
+  recentOrders: Order[];
+}
+
+export type NewsCategory = 'TIN_TRANG_TRAI' | 'KIEN_THUC' | 'THONG_BAO';
+
+export interface NewsArticle {
+  id: number;
+  title: string;
+  slug: string;
+  summary: string;
+  content: string;
+  thumbnailUrl: string;
+  category: NewsCategory;
+  isPublished: boolean;
+  views: number;
+  authorId?: number | null;
+  authorName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsListResponse {
+  items: NewsArticle[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+
+

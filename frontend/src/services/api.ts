@@ -1,5 +1,13 @@
 import axios from "axios";
-import { Product, Category, Policy, Order, User } from "../types";
+import {
+  Product,
+  Category,
+  Policy,
+  Order,
+  User,
+  TraceabilityInfo,
+  AdminDashboardStatistics,
+} from "../types";
 import { useAuthStore } from "../store/useAuthStore";
 import {
   MOCK_PRODUCTS,
@@ -32,6 +40,109 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
+
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+}> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else if (token) {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Bắt lỗi 403 Forbidden
+    if (error.response?.status === 403) {
+      console.warn("Truy cập bị từ chối (403 Forbidden):", error.response?.data?.message);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("vft:forbidden", {
+            detail: {
+              message:
+                error.response?.data?.message ||
+                "Bạn không có quyền truy cập chức năng này.",
+            },
+          }),
+        );
+      }
+      return Promise.reject(error);
+    }
+
+    // Bắt lỗi 401 Unauthorized và tự động Refresh Token
+    if (error.response?.status === 401 && !originalRequest?._retry) {
+      if (
+        originalRequest?.url?.includes("/auth/refresh") ||
+        originalRequest?.url?.includes("/auth/login")
+      ) {
+        return Promise.reject(error);
+      }
+
+      const refreshToken =
+        useAuthStore.getState().refreshToken ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("vft_refresh_token")
+          : null);
+
+      if (!refreshToken) {
+        useAuthStore.getState().logout();
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        return new Promise<string>((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((newToken) => {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshResponse = await axios.post<{
+          success: boolean;
+          data: { accessToken: string; user: User };
+        }>(`${API_BASE_URL}/auth/refresh`, {
+          refreshToken,
+        });
+
+        const { accessToken, user } = refreshResponse.data.data;
+        useAuthStore.getState().login(accessToken, user, refreshToken);
+
+        processQueue(null, accessToken);
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        useAuthStore.getState().logout();
+        if (typeof window !== "undefined") {
+          window.location.href = "/auth?mode=login&sessionExpired=true";
+        }
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  },
+);
 
 interface AuthResponse {
   user: User;
@@ -82,6 +193,84 @@ export const authService = {
         message: string;
       }>
     >("/admin/dashboard");
+    return response.data.data;
+  },
+};
+
+export const adminService = {
+  getDashboard: async (): Promise<{
+    user: User;
+    accessLevel: string;
+    message: string;
+  }> => {
+    const response = await apiClient.get<
+      ApiEnvelope<{
+        user: User;
+        accessLevel: string;
+        message: string;
+      }>
+    >("/admin/dashboard");
+    return response.data.data;
+  },
+
+  getStatistics: async (): Promise<AdminDashboardStatistics> => {
+    const response = await apiClient.get<ApiEnvelope<AdminDashboardStatistics>>(
+      "/admin/dashboard/statistics",
+    );
+    return response.data.data;
+  },
+};
+
+export const userService = {
+  getAll: async (): Promise<User[]> => {
+    const response = await apiClient.get<ApiEnvelope<User[]>>("/users");
+    return response.data.data;
+  },
+
+  create: async (data: {
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    password: string;
+    role: User["role"];
+  }): Promise<User> => {
+    const response = await apiClient.post<ApiEnvelope<User>>("/users", data);
+    return response.data.data;
+  },
+
+  update: async (
+    id: number,
+    data: Partial<
+      Pick<User, "fullName" | "email" | "phoneNumber" | "role" | "isActive">
+    > & { password?: string },
+  ): Promise<User> => {
+    const response = await apiClient.patch<ApiEnvelope<User>>(
+      `/users/${id}`,
+      data,
+    );
+    return response.data.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/users/${id}`);
+  },
+
+  getProfile: async (): Promise<User> => {
+    const response = await apiClient.get<ApiEnvelope<User>>("/users/me");
+    return response.data.data;
+  },
+
+  updateProfile: async (data: {
+    fullName?: string;
+    phoneNumber?: string;
+    avatarUrl?: string;
+    currentPassword?: string;
+    newPassword?: string;
+  }): Promise<User> => {
+    const response = await apiClient.patch<ApiEnvelope<User>>(
+      "/users/me/profile",
+      data,
+    );
     return response.data.data;
   },
 };
@@ -137,6 +326,45 @@ export const productService = {
       return MOCK_PRODUCTS.find((p) => p.slug === slug);
     }
   },
+
+  getAllForAdmin: async (): Promise<Product[]> => {
+    const response = await apiClient.get("/products", {
+      params: { limit: 100 },
+    });
+    return response.data.data;
+  },
+
+  create: async (data: Omit<Product, "id">): Promise<Product> => {
+    const response = await apiClient.post<ApiEnvelope<Product>>(
+      "/products",
+      data,
+    );
+    return response.data.data;
+  },
+
+  update: async (
+    id: number,
+    data: Omit<Partial<Omit<Product, "id">>, "salePrice"> & {
+      salePrice?: number | null;
+    },
+  ): Promise<Product> => {
+    const response = await apiClient.put<ApiEnvelope<Product>>(
+      `/products/${id}`,
+      data,
+    );
+    return response.data.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/products/${id}`);
+  },
+
+  getTraceability: async (id: number): Promise<TraceabilityInfo> => {
+    const response = await apiClient.get<ApiEnvelope<TraceabilityInfo>>(
+      `/products/${id}/traceability`,
+    );
+    return response.data.data;
+  },
 };
 
 export const categoryService = {
@@ -158,6 +386,11 @@ export const categoryService = {
       warnApiFallback("Categories", error);
       return MOCK_CATEGORIES;
     }
+  },
+
+  getAllForAdmin: async (): Promise<Category[]> => {
+    const response = await apiClient.get<ApiEnvelope<Category[]>>("/categories");
+    return response.data.data;
   },
 };
 
@@ -203,22 +436,41 @@ export const orderService = {
   },
 
   getAll: async (): Promise<Order[]> => {
-    try {
-      const response = await apiClient.get("/orders");
-      return response.data.data;
-    } catch (error) {
-      warnApiFallback("Order history", error);
-      return [];
-    }
+    const response = await apiClient.get<ApiEnvelope<Order[]>>("/orders");
+    return response.data.data;
+  },
+
+  getAllForAdmin: async (): Promise<Order[]> => {
+    const response = await apiClient.get<ApiEnvelope<Order[]>>("/orders/admin/all");
+    return response.data.data;
+  },
+
+  cancelOrder: async (id: number): Promise<Order> => {
+    const response = await apiClient.patch<ApiEnvelope<Order>>(`/orders/${id}/cancel`);
+    return response.data.data;
+  },
+
+  updateStatus: async (
+    id: number,
+    orderStatus: Order["orderStatus"],
+    paymentStatus?: Order["paymentStatus"],
+    proofImageUrl?: string,
+    proofNote?: string,
+  ): Promise<Order> => {
+    const response = await apiClient.patch<ApiEnvelope<Order>>(`/orders/${id}/status`, {
+      orderStatus,
+      paymentStatus,
+      proofImageUrl,
+      proofNote,
+    });
+    return response.data.data;
   },
 
   getByCode: async (code: string): Promise<Order | undefined> => {
-    try {
-      const response = await apiClient.get(`/orders/${code}`);
-      return response.data.data;
-    } catch (error) {
-      warnApiFallback("Order lookup", error);
-      return undefined;
-    }
+    const response = await apiClient.get<ApiEnvelope<Order>>(`/orders/${code}`);
+    return response.data.data;
   },
 };
+
+export { newsService } from './news.service';
+
