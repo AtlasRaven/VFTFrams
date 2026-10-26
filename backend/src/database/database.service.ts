@@ -15,16 +15,29 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private isConnected = false;
 
   constructor() {
-    const config = getDatabaseConfig();
-    this.pool = new pg.Pool({
-      host: config.host,
-      port: config.port,
-      user: config.username,
-      password: config.password,
-      database: config.database,
-      max: 10,
-      connectionTimeoutMillis: 5000,
-    });
+    const databaseUrl = process.env.DATABASE_URL;
+    if (databaseUrl) {
+      this.pool = new pg.Pool({
+        connectionString: databaseUrl,
+        ssl:
+          process.env.DB_SSL === 'false'
+            ? false
+            : { rejectUnauthorized: false },
+        max: 10,
+        connectionTimeoutMillis: 10000,
+      });
+    } else {
+      const config = getDatabaseConfig();
+      this.pool = new pg.Pool({
+        host: config.host,
+        port: config.port,
+        user: config.username,
+        password: config.password,
+        database: config.database,
+        max: 10,
+        connectionTimeoutMillis: 5000,
+      });
+    }
     this.pool.on('error', (error: Error) => {
       this.isConnected = false;
       this.logger.error('Unexpected PostgreSQL pool error', error.stack);
@@ -32,10 +45,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    const config = getDatabaseConfig();
-    this.logger.log(
-      `Connecting to PostgreSQL database at ${config.host}:${config.port}/${config.database}...`,
-    );
+    if (process.env.DATABASE_URL) {
+      this.logger.log('Connecting to PostgreSQL database using DATABASE_URL...');
+    } else {
+      const config = getDatabaseConfig();
+      this.logger.log(
+        `Connecting to PostgreSQL database at ${config.host}:${config.port}/${config.database}...`,
+      );
+    }
     await this.pool.query('SELECT 1');
     await this.pool.query('SELECT id FROM users LIMIT 0');
     this.isConnected = true;

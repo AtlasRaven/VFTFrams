@@ -23,6 +23,8 @@ import {
   Check,
   ToggleLeft,
   ToggleRight,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { newsService } from "../../../services/news.service";
 import { RoleGuard } from "../../../components/auth/RoleGuard";
@@ -196,7 +198,10 @@ export default function AdminNewsPage() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
                 placeholder="Tìm tiêu đề, nội dung bài viết..."
                 className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
               />
@@ -384,6 +389,68 @@ export default function AdminNewsPage() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <p className="text-xs text-gray-500 font-medium">
+                    Trang{" "}
+                    <span className="font-bold text-gray-900">{page}</span> /{" "}
+                    <span className="font-bold text-gray-900">{totalPages}</span>{" "}
+                    (Tổng số:{" "}
+                    <span className="font-bold text-[#2E7D32]">{total}</span> bài
+                    viết)
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => {
+                        setPage((p) => Math.max(1, p - 1));
+                        window.scrollTo({ top: 300, behavior: "smooth" });
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Trang trước</span>
+                    </button>
+
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => {
+                            setPage(p);
+                            window.scrollTo({ top: 300, behavior: "smooth" });
+                          }}
+                          className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            page === p
+                              ? "bg-[#2E7D32] text-white shadow-xs"
+                              : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 shadow-xs"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={page >= totalPages}
+                      onClick={() => {
+                        setPage((p) => Math.min(totalPages, p + 1));
+                        window.scrollTo({ top: 300, behavior: "smooth" });
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs"
+                    >
+                      <span>Trang sau</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

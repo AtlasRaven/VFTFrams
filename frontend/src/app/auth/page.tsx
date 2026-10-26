@@ -3,7 +3,7 @@
 import React, { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sprout, CheckCircle2, ArrowRight, LoaderCircle } from "lucide-react";
+import { Sprout, CheckCircle2, ArrowRight, LoaderCircle, ShieldCheck } from "lucide-react";
 import axios from "axios";
 import { useAuthStore } from "../../store/useAuthStore";
 import { authService } from "../../services/api";
@@ -52,7 +52,7 @@ function AuthContent() {
         password: formData.password,
       });
       setMessage(
-        "Đăng ký thành công. Tài khoản khách hàng chưa được cấp quyền quản trị.",
+        "Đăng ký tài khoản Khách Hàng (CUSTOMER) thành công! Quyền STAFF hoặc ADMIN chỉ được cấp bởi Quản trị viên.",
       );
       setFormData({ fullName: "", email: "", phone: "", password: "" });
       setMode("login");
@@ -141,6 +141,18 @@ function AuthContent() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === "register" && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 text-xs text-emerald-800 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-[#2E7D32]">
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>Vai trò tài khoản: Khách Hàng (CUSTOMER)</span>
+              </div>
+              <p className="text-[11px] text-gray-600 leading-relaxed">
+                Tài khoản đăng ký trực tuyến sẽ mặc định có vai trò <strong>Khách Hàng</strong>. Các vai trò <strong>Nhân Viên (STAFF)</strong> hoặc <strong>Quản Trị Viên (ADMIN)</strong> chỉ được tạo hoặc cấp quyền bởi Quản trị viên hệ thống.
+              </p>
+            </div>
+          )}
+
           {mode === "register" && (
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">

@@ -5,6 +5,7 @@ import {
   Patch,
   Body,
   Param,
+  Query,
   Headers,
   UseGuards,
   NotFoundException,
@@ -74,12 +75,25 @@ export class OrdersController {
   // Khách hàng / Nhân viên / Admin xem lịch sử đơn hàng của mình
   @UseGuards(JwtAuthGuard)
   @Get()
-  async getAll(@CurrentUser() user: CurrentUserPayload) {
+  async getAll(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
     const userId = Number(user.sub || user.id);
-    const orders = await this.ordersService.findAll(userId);
+    const result = await this.ordersService.findAll({
+      userId,
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+      status,
+      search,
+    });
     return {
       success: true,
-      data: orders,
+      data: result.items,
+      pagination: result.pagination,
       message: 'Lấy lịch sử đơn hàng thành công',
     };
   }
@@ -88,11 +102,22 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'STAFF')
   @Get('admin/all')
-  async getAllAdminOrders() {
-    const orders = await this.ordersService.findAll();
+  async getAllAdminOrders(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    const result = await this.ordersService.findAll({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+      status,
+      search,
+    });
     return {
       success: true,
-      data: orders,
+      data: result.items,
+      pagination: result.pagination,
       message: 'Lấy toàn bộ danh sách đơn hàng hệ thống (Admin/Staff)',
     };
   }

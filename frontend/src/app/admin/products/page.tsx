@@ -3,6 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import {
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Package,
+  RotateCcw,
+} from "lucide-react";
 import { categoryService, productService } from "../../../services/api";
 import { useAuthStore } from "../../../store/useAuthStore";
 import type { Category, CertificationType, Product } from "../../../types";
@@ -82,6 +90,12 @@ export default function AdminProductsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Filters & Pagination
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
   const loadData = useCallback(async () => {
     try {
@@ -470,71 +484,206 @@ export default function AdminProductsPage() {
         </div>
       </form>
 
-      <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <table className="w-full min-w-[900px] text-left text-sm">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-            <tr>
-              <th className="px-4 py-3">Sản phẩm</th>
-              <th className="px-4 py-3">Danh mục</th>
-              <th className="px-4 py-3">Giá</th>
-              <th className="px-4 py-3">Tồn kho</th>
-              <th className="px-4 py-3">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {products.map((product) => (
-              <tr key={product.id}>
-                <td className="px-4 py-3">
-                  <p className="font-semibold text-gray-900">{product.name}</p>
-                  <p className="text-xs text-gray-500">{product.slug}</p>
-                </td>
-                <td className="px-4 py-3">
-                  {categories.find((category) => category.id === product.categoryId)
-                    ?.name ?? `#${product.categoryId}`}
-                </td>
-                <td className="px-4 py-3">
-                  {product.salePrice !== undefined && (
-                    <span className="mr-2 text-gray-400 line-through">
-                      {product.price.toLocaleString("vi-VN")}₫
-                    </span>
-                  )}
-                  <span className="font-semibold">
-                    {(product.salePrice ?? product.price).toLocaleString("vi-VN")}₫
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {product.stockQuantity} {product.unit}
-                </td>
-                <td className="space-x-3 px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => startEditing(product)}
-                    className="font-semibold text-[#2E7D32] hover:underline"
+      {/* Search & Category Filter Toolbar */}
+      {(() => {
+        const filteredProducts = products.filter((p) => {
+          if (categoryFilter !== "ALL" && p.categoryId !== Number(categoryFilter)) {
+            return false;
+          }
+          if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase().trim();
+            return (
+              p.name.toLowerCase().includes(q) ||
+              p.slug.toLowerCase().includes(q) ||
+              (p.origin && p.origin.toLowerCase().includes(q))
+            );
+          }
+          return true;
+        });
+
+        const totalPages = Math.ceil(filteredProducts.length / limit) || 1;
+        const paginatedProducts = filteredProducts.slice(
+          (page - 1) * limit,
+          page * limit,
+        );
+
+        return (
+          <>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto flex-1">
+                <div className="relative flex-1 min-w-[200px] max-w-md">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(1);
+                    }}
+                    placeholder="Tìm theo tên sản phẩm, slug, xuất xứ..."
+                    className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-400" />
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => {
+                      setCategoryFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="py-2 px-3 text-xs sm:text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 font-medium text-gray-700 cursor-pointer"
                   >
-                    Sửa
-                  </button>
-                  {user?.role === "ADMIN" && (
+                    <option value="ALL">Tất cả 10 danh mục ({products.length} SP)</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="text-xs font-semibold text-gray-500 whitespace-nowrap">
+                Hiển thị <span className="text-[#2E7D32] font-bold">{filteredProducts.length}</span> / {products.length} sản phẩm
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3">Sản phẩm</th>
+                    <th className="px-4 py-3">Danh mục</th>
+                    <th className="px-4 py-3">Giá</th>
+                    <th className="px-4 py-3">Tồn kho</th>
+                    <th className="px-4 py-3">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paginatedProducts.map((product) => (
+                    <tr key={product.id}>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-gray-900">{product.name}</p>
+                        <p className="text-xs text-gray-500">{product.slug}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {categories.find((category) => category.id === product.categoryId)
+                          ?.name ?? `#${product.categoryId}`}
+                      </td>
+                      <td className="px-4 py-3">
+                        {product.salePrice !== undefined && (
+                          <span className="mr-2 text-gray-400 line-through">
+                            {product.price.toLocaleString("vi-VN")}₫
+                          </span>
+                        )}
+                        <span className="font-semibold">
+                          {(product.salePrice ?? product.price).toLocaleString("vi-VN")}₫
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {product.stockQuantity} {product.unit}
+                      </td>
+                      <td className="space-x-3 px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => startEditing(product)}
+                          className="font-semibold text-[#2E7D32] hover:underline"
+                        >
+                          Sửa
+                        </button>
+                        {user?.role === "ADMIN" && (
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(product)}
+                            className="font-semibold text-red-600 hover:underline"
+                          >
+                            Xóa
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredProducts.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                        Không tìm thấy sản phẩm nào phù hợp.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <p className="text-xs text-gray-500 font-medium">
+                    Hiển thị{" "}
+                    <span className="font-bold text-gray-900">
+                      {(page - 1) * limit + 1} -{" "}
+                      {Math.min(page * limit, filteredProducts.length)}
+                    </span>{" "}
+                    trong tổng số{" "}
+                    <span className="font-bold text-gray-900">
+                      {filteredProducts.length}
+                    </span>{" "}
+                    sản phẩm
+                  </p>
+
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => void handleDelete(product)}
-                      className="font-semibold text-red-600 hover:underline"
+                      disabled={page <= 1}
+                      onClick={() => {
+                        setPage((p) => Math.max(1, p - 1));
+                        window.scrollTo({ top: 400, behavior: "smooth" });
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs"
                     >
-                      Xóa
+                      <ChevronLeft className="w-4 h-4" />
+                      <span>Trang trước</span>
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {products.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                  Chưa có sản phẩm nào trong database.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => {
+                            setPage(p);
+                            window.scrollTo({ top: 400, behavior: "smooth" });
+                          }}
+                          className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            page === p
+                              ? "bg-[#2E7D32] text-white shadow-xs"
+                              : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 shadow-xs"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={page >= totalPages}
+                      onClick={() => {
+                        setPage((p) => Math.min(totalPages, p + 1));
+                        window.scrollTo({ top: 400, behavior: "smooth" });
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs"
+                    >
+                      <span>Trang sau</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        );
+      })()}
     </main>
   );
 }

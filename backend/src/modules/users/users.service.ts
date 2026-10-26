@@ -118,11 +118,52 @@ function isUniqueViolation(error: unknown): boolean {
 export class UsersService {
   constructor(private readonly database: DatabaseService) {}
 
-  async findAll(): Promise<Omit<UserEntity, 'passwordHash'>[]> {
-    const result = await this.database.query<UserRow>(
-      `SELECT ${USER_COLUMNS} FROM users ORDER BY id`,
+  async findAll(params?: {
+    page?: number;
+    limit?: number;
+    role?: string;
+    search?: string;
+  }): Promise<{
+    items: Omit<UserEntity, 'passwordHash'>[];
+    pagination: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const page = Math.max(1, params?.page || 1);
+    const limit = Math.max(1, Math.min(100, params?.limit || 10));
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [];
+    const queryParams: (number | string)[] = [];
+
+    if (params?.role && params.role !== 'ALL') {
+      queryParams.push(params.role);
+      conditions.push(`role = $${queryParams.length}`);
+    }
+
+    if (params?.search && params.search.trim()) {
+      queryParams.push(`%${params.search.trim().toLowerCase()}%`);
+      const pIdx = queryParams.length;
+      conditions.push(
+        `(lower(full_name) LIKE $${pIdx} OR lower(email) LIKE $${pIdx} OR phone_number LIKE $${pIdx})`,
+      );
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countRes = await this.database.query<{ count: string | number }>(
+      `SELECT COUNT(*)::int as count FROM users ${whereClause}`,
+      queryParams,
     );
-    return result.rows.map((row) => withoutPassword(toUser(row)));
+    const total = Number(countRes.rows[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    const dataParams = [...queryParams, limit, offset];
+    const dataQuery = `SELECT ${USER_COLUMNS} FROM users ${whereClause} ORDER BY id ASC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+
+    const result = await this.database.query<UserRow>(dataQuery, dataParams);
+    return {
+      items: result.rows.map((row) => withoutPassword(toUser(row))),
+      pagination: { total, page, limit, totalPages },
+    };
   }
 
   async findById(id: number): Promise<Omit<UserEntity, 'passwordHash'> | null> {

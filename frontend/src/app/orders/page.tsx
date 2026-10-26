@@ -15,6 +15,7 @@ import {
   Truck,
   XCircle,
   AlertCircle,
+  ChevronLeft,
   ChevronRight,
   ShieldCheck,
   ShoppingBag,
@@ -42,6 +43,8 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const limit = 5;
 
   // Cancel order state
   const [cancelModalOrder, setCancelModalOrder] = useState<Order | null>(null);
@@ -204,6 +207,9 @@ export default function OrdersPage() {
     return true;
   });
 
+  const totalPages = Math.ceil(filteredOrders.length / limit) || 1;
+  const paginatedOrders = filteredOrders.slice((page - 1) * limit, page * limit);
+
   if (!hasHydrated) return null;
 
   // Unauthenticated Guest State
@@ -289,13 +295,19 @@ export default function OrdersPage() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             placeholder="Tìm theo mã đơn (#ORD-...) hoặc tên món..."
             className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery("")}
+              onClick={() => {
+                setSearchQuery("");
+                setPage(1);
+              }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600"
             >
               Xóa
@@ -314,7 +326,10 @@ export default function OrdersPage() {
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as FilterTab)}
+              onClick={() => {
+                setActiveTab(tab.key as FilterTab);
+                setPage(1);
+              }}
               className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === tab.key
                   ? "bg-[#2E7D32] text-white shadow-xs"
@@ -386,7 +401,7 @@ export default function OrdersPage() {
         </div>
       ) : (
         <div className="space-y-5">
-          {filteredOrders.map((order) => {
+          {paginatedOrders.map((order) => {
             const canCancel = order.orderStatus === "PENDING";
             return (
               <div
@@ -647,6 +662,72 @@ export default function OrdersPage() {
               </div>
             );
           })}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-xs text-gray-500 font-medium">
+                Hiển thị{" "}
+                <span className="font-bold text-gray-900">
+                  {(page - 1) * limit + 1} -{" "}
+                  {Math.min(page * limit, filteredOrders.length)}
+                </span>{" "}
+                trong tổng số{" "}
+                <span className="font-bold text-gray-900">
+                  {filteredOrders.length}
+                </span>{" "}
+                đơn hàng
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => {
+                    setPage((p) => Math.max(1, p - 1));
+                    window.scrollTo({ top: 150, behavior: "smooth" });
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>Trang trước</span>
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => {
+                        setPage(p);
+                        window.scrollTo({ top: 150, behavior: "smooth" });
+                      }}
+                      className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        page === p
+                          ? "bg-[#2E7D32] text-white shadow-xs"
+                          : "text-gray-700 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => {
+                    setPage((p) => Math.min(totalPages, p + 1));
+                    window.scrollTo({ top: 150, behavior: "smooth" });
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  <span>Trang sau</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

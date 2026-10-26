@@ -15,6 +15,8 @@ import {
   AlertCircle,
   RotateCcw,
   Edit3,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   DollarSign,
   ShieldCheck,
@@ -47,6 +49,8 @@ export default function AdminOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [paymentFilter, setPaymentFilter] = useState<string>("ALL");
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
   // Selected Order for Edit/Status Modal
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -297,6 +301,9 @@ export default function AdminOrdersPage() {
     return true;
   });
 
+  const totalPages = Math.ceil(filteredOrders.length / limit) || 1;
+  const paginatedOrders = filteredOrders.slice((page - 1) * limit, page * limit);
+
   return (
     <RoleGuard allowedRoles={["ADMIN", "STAFF"]}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -414,7 +421,10 @@ export default function AdminOrdersPage() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
                 placeholder="Tìm mã đơn, tên khách, số điện thoại..."
                 className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 focus:border-[#2E7D32]"
               />
@@ -425,7 +435,10 @@ export default function AdminOrdersPage() {
               <Filter className="w-4 h-4 text-gray-400" />
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="py-2 px-3 text-xs sm:text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 font-medium text-gray-700 cursor-pointer"
               >
                 <option value="ALL">Tất cả trạng thái ({orders.length})</option>
@@ -442,7 +455,10 @@ export default function AdminOrdersPage() {
             <div>
               <select
                 value={paymentFilter}
-                onChange={(e) => setPaymentFilter(e.target.value)}
+                onChange={(e) => {
+                  setPaymentFilter(e.target.value);
+                  setPage(1);
+                }}
                 className="py-2 px-3 text-xs sm:text-sm rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32]/20 font-medium text-gray-700 cursor-pointer"
               >
                 <option value="ALL">Tất cả thanh toán</option>
@@ -487,7 +503,8 @@ export default function AdminOrdersPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] font-bold text-gray-600 uppercase tracking-wider">
@@ -502,7 +519,7 @@ export default function AdminOrdersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-xs">
-                  {filteredOrders.map((order) => (
+                  {paginatedOrders.map((order) => (
                     <tr
                       key={order.id}
                       className="hover:bg-gray-50/60 transition-colors"
@@ -700,7 +717,74 @@ export default function AdminOrdersPage() {
                 </tbody>
               </table>
             </div>
-          )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-xs text-gray-500 font-medium">
+                  Hiển thị{" "}
+                  <span className="font-bold text-gray-900">
+                    {(page - 1) * limit + 1} -{" "}
+                    {Math.min(page * limit, filteredOrders.length)}
+                  </span>{" "}
+                  trong tổng số{" "}
+                  <span className="font-bold text-gray-900">
+                    {filteredOrders.length}
+                  </span>{" "}
+                  đơn hàng
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={page <= 1}
+                    onClick={() => {
+                      setPage((p) => Math.max(1, p - 1));
+                      window.scrollTo({ top: 350, behavior: "smooth" });
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Trang trước</span>
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => {
+                          setPage(p);
+                          window.scrollTo({ top: 350, behavior: "smooth" });
+                        }}
+                        className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          page === p
+                            ? "bg-[#2E7D32] text-white shadow-xs"
+                            : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 shadow-xs"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={page >= totalPages}
+                    onClick={() => {
+                      setPage((p) => Math.min(totalPages, p + 1));
+                      window.scrollTo({ top: 350, behavior: "smooth" });
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-xs"
+                  >
+                    <span>Trang sau</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
         </div>
 
         {/* Update Status Modal with Camera & Distinct Buttons */}

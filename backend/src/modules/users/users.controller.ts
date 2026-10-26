@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ParseIntPipe,
   UseGuards,
   UsePipes,
@@ -68,10 +69,22 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Get()
-  async getAllUsers() {
+  async getAllUsers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('role') role?: string,
+    @Query('search') search?: string,
+  ) {
+    const result = await this.usersService.findAll({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+      role,
+      search,
+    });
     return {
       success: true,
-      data: await this.usersService.findAll(),
+      data: result.items,
+      pagination: result.pagination,
       message: 'Lấy danh sách người dùng thành công (Admin)',
     };
   }
@@ -103,7 +116,20 @@ export class UsersController {
   async updateUser(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
+    @CurrentUser() currentUser: CurrentUserPayload,
   ) {
+    const currentAdminId = Number(currentUser.sub || currentUser.id);
+    if (id === currentAdminId && dto.role !== undefined && dto.role !== 'ADMIN') {
+      throw new ForbiddenException(
+        'Không thể tự hạ quyền vai trò Quản trị viên (ADMIN) của chính mình.',
+      );
+    }
+    if (id === currentAdminId && dto.isActive === false) {
+      throw new ForbiddenException(
+        'Không thể tự khóa tài khoản Quản trị viên đang đăng nhập.',
+      );
+    }
+
     const user = await this.usersService.update(id, {
       fullName: dto.fullName,
       email: dto.email,

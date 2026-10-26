@@ -227,18 +227,79 @@ export class OrdersService {
     });
   }
 
-  async findAll(userId?: number): Promise<OrderRecord[]> {
-    let orderQuery = 'SELECT * FROM orders';
+  async findAll(
+    userIdOrParams?:
+      | number
+      | {
+          userId?: number;
+          status?: string;
+          search?: string;
+          page?: number;
+          limit?: number;
+        },
+  ): Promise<{
+    items: OrderRecord[];
+    pagination: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    let userId: number | undefined;
+    let status: string | undefined;
+    let search: string | undefined;
+    let page = 1;
+    let limit = 10;
+
+    if (typeof userIdOrParams === 'number') {
+      userId = userIdOrParams;
+      limit = 100;
+    } else if (typeof userIdOrParams === 'object' && userIdOrParams !== null) {
+      userId = userIdOrParams.userId;
+      status = userIdOrParams.status;
+      search = userIdOrParams.search;
+      page = Math.max(1, userIdOrParams.page || 1);
+      limit = Math.max(1, Math.min(100, userIdOrParams.limit || 10));
+    }
+
+    const conditions: string[] = [];
     const params: (number | string)[] = [];
 
     if (userId) {
-      orderQuery += ' WHERE user_id = $1';
       params.push(userId);
+      conditions.push(`user_id = $${params.length}`);
     }
-    orderQuery += ' ORDER BY id DESC';
 
-    const ordersRes = await this.database.query<OrderRow>(orderQuery, params);
-    if (!ordersRes.rows.length) return [];
+    if (status && status !== 'ALL') {
+      params.push(status);
+      conditions.push(`order_status = $${params.length}`);
+    }
+
+    if (search && search.trim()) {
+      params.push(`%${search.trim().toLowerCase()}%`);
+      const pIdx = params.length;
+      conditions.push(
+        `(lower(order_code) LIKE $${pIdx} OR lower(recipient_name) LIKE $${pIdx} OR recipient_phone LIKE $${pIdx})`,
+      );
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Đếm tổng số đơn hàng thỏa điều kiện
+    const countRes = await this.database.query<{ count: string | number }>(
+      `SELECT COUNT(*)::int as count FROM orders ${whereClause}`,
+      params,
+    );
+    const total = Number(countRes.rows[0]?.count || 0);
+    const totalPages = Math.ceil(total / limit) || 1;
+    const offset = (page - 1) * limit;
+
+    const dataParams = [...params, limit, offset];
+    const orderQuery = `SELECT * FROM orders ${whereClause} ORDER BY id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    const ordersRes = await this.database.query<OrderRow>(orderQuery, dataParams);
+    if (!ordersRes.rows.length) {
+      return {
+        items: [],
+        pagination: { total, page, limit, totalPages },
+      };
+    }
 
     const orderIds = ordersRes.rows.map((r) => r.id);
     const placeholders = orderIds.map((_, i) => `$${i + 1}`).join(',');
@@ -260,9 +321,14 @@ export class OrdersService {
       itemsByOrderId.set(item.order_id, list);
     }
 
-    return ordersRes.rows.map((row) =>
+    const items = ordersRes.rows.map((row) =>
       this.mapOrder(row, itemsByOrderId.get(row.id) ?? []),
     );
+
+    return {
+      items,
+      pagination: { total, page, limit, totalPages },
+    };
   }
 
   async findByCode(code: string): Promise<OrderRecord | null> {

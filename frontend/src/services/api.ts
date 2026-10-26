@@ -154,6 +154,7 @@ interface AuthResponse {
 interface ApiEnvelope<T> {
   success: boolean;
   data: T;
+  pagination?: PaginationInfo;
   message: string;
 }
 
@@ -223,8 +224,43 @@ export const adminService = {
 };
 
 export const userService = {
-  getAll: async (): Promise<User[]> => {
-    const response = await apiClient.get<ApiEnvelope<User[]>>("/users");
+  getPaginated: async (params?: {
+    page?: number;
+    limit?: number;
+    role?: string;
+    search?: string;
+  }): Promise<{ items: User[]; pagination: PaginationInfo }> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 10;
+    const response = await apiClient.get<ApiEnvelope<User[]>>("/users", {
+      params: {
+        page,
+        limit,
+        role: params?.role,
+        search: params?.search,
+      },
+    });
+    const items = response.data.data || [];
+    const pagination = response.data.pagination || {
+      total: items.length,
+      page,
+      limit,
+      totalPages: Math.ceil(items.length / limit) || 1,
+    };
+    return { items, pagination };
+  },
+
+  getAll: async (params?: {
+    role?: string;
+    search?: string;
+  }): Promise<User[]> => {
+    const response = await apiClient.get<ApiEnvelope<User[]>>("/users", {
+      params: {
+        limit: 100,
+        role: params?.role,
+        search: params?.search,
+      },
+    });
     return response.data.data;
   },
 
@@ -511,13 +547,85 @@ export const orderService = {
     return response.data.data;
   },
 
-  getAll: async (): Promise<Order[]> => {
-    const response = await apiClient.get<ApiEnvelope<Order[]>>("/orders");
+  getPaginated: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  }): Promise<{ items: Order[]; pagination: PaginationInfo }> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 8;
+    const response = await apiClient.get<ApiEnvelope<Order[]>>("/orders", {
+      params: {
+        page,
+        limit,
+        status: params?.status,
+        search: params?.search,
+      },
+    });
+    const items = response.data.data || [];
+    const pagination = response.data.pagination || {
+      total: items.length,
+      page,
+      limit,
+      totalPages: Math.ceil(items.length / limit) || 1,
+    };
+    return { items, pagination };
+  },
+
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  }): Promise<Order[]> => {
+    const response = await apiClient.get<ApiEnvelope<Order[]>>("/orders", {
+      params: {
+        limit: 100,
+        status: params?.status,
+        search: params?.search,
+      },
+    });
     return response.data.data;
   },
 
-  getAllForAdmin: async (): Promise<Order[]> => {
-    const response = await apiClient.get<ApiEnvelope<Order[]>>("/orders/admin/all");
+  getAdminPaginated: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  }): Promise<{ items: Order[]; pagination: PaginationInfo }> => {
+    const page = params?.page ?? 1;
+    const limit = params?.limit ?? 10;
+    const response = await apiClient.get<ApiEnvelope<Order[]>>("/orders/admin/all", {
+      params: {
+        page,
+        limit,
+        status: params?.status,
+        search: params?.search,
+      },
+    });
+    const items = response.data.data || [];
+    const pagination = response.data.pagination || {
+      total: items.length,
+      page,
+      limit,
+      totalPages: Math.ceil(items.length / limit) || 1,
+    };
+    return { items, pagination };
+  },
+
+  getAllForAdmin: async (params?: {
+    status?: string;
+    search?: string;
+  }): Promise<Order[]> => {
+    const response = await apiClient.get<ApiEnvelope<Order[]>>("/orders/admin/all", {
+      params: {
+        limit: 100,
+        status: params?.status,
+        search: params?.search,
+      },
+    });
     return response.data.data;
   },
 
