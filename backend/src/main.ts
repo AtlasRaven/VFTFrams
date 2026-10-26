@@ -15,7 +15,10 @@ async function bootstrap() {
   ].filter(Boolean);
 
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (!origin) return callback(null, true);
       if (
         allowedOrigins.includes(origin) ||
@@ -37,7 +40,7 @@ async function bootstrap() {
   // 3. Global Response Interceptor
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  // 4. Start Server - Ưu tiên đọc trực tiếp process.env.PORT và bind vào 0.0.0.0
+  // 4. Start Server
   const port = Number(process.env.PORT || ENV.PORT) || 4000;
   await app.listen(port, '0.0.0.0');
 
