@@ -1,11 +1,16 @@
 import { NestFactory } from '@nestjs/core';
+import express from 'express';
 import { AppModule } from './app.module.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 import { ENV } from './config/env.config.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+
+  // Increase payload limit to 50MB for image upload & proof photos
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // 1. CORS Configuration for Frontend
   const allowedOrigins = [

@@ -27,11 +27,13 @@ import {
   FileCheck,
   X,
   MessageCircle,
+  QrCode,
 } from "lucide-react";
 import { orderService } from "../../services/api";
 import { useAuthStore } from "../../store/useAuthStore";
 import type { Order } from "../../types";
 import { TraceabilityModal } from "../../components/products/TraceabilityModal";
+import { VietQRModal } from "../../components/payment/VietQRModal";
 
 type FilterTab = "ALL" | "PENDING" | "SHIPPING" | "COMPLETED" | "CANCELLED";
 
@@ -62,6 +64,9 @@ export default function OrdersPage() {
     note?: string;
     time?: string;
   } | null>(null);
+
+  // VietQR Payment Modal
+  const [qrModalOrder, setQrModalOrder] = useState<Order | null>(null);
 
   const loadOrders = useCallback(async () => {
     setIsLoading(true);
@@ -450,11 +455,25 @@ export default function OrdersPage() {
                         <Phone className="w-3.5 h-3.5 text-[#2E7D32]" />
                         <span>Số điện thoại: {order.recipientPhone}</span>
                       </div>
-                      <div className="pl-5 pt-0.5">
+                      <div className="pl-5 pt-0.5 space-y-1.5">
                         {renderPaymentBadge(
                           order.paymentMethod,
                           order.paymentStatus,
                         )}
+                        {order.paymentMethod === "BANK_TRANSFER" &&
+                          order.paymentStatus === "PENDING" &&
+                          order.orderStatus !== "CANCELLED" && (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => setQrModalOrder(order)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-[#2E7D32] text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                              >
+                                <QrCode className="w-3.5 h-3.5" />
+                                <span>Quét mã VietQR thanh toán</span>
+                              </button>
+                            </div>
+                          )}
                       </div>
                     </div>
                   </div>
@@ -872,6 +891,14 @@ export default function OrdersPage() {
           </div>
         </div>
       )}
+
+      {/* VietQR Payment Modal */}
+      <VietQRModal
+        isOpen={!!qrModalOrder}
+        onClose={() => setQrModalOrder(null)}
+        orderCode={qrModalOrder?.orderCode || ""}
+        amount={qrModalOrder?.totalAmount || 0}
+      />
     </div>
   );
 }

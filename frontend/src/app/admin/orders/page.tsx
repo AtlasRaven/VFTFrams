@@ -38,6 +38,7 @@ import { RoleGuard } from "../../../components/auth/RoleGuard";
 import { useAuthStore } from "../../../store/useAuthStore";
 import type { Order } from "../../../types";
 import { TraceabilityModal } from "../../../components/products/TraceabilityModal";
+import { compressImage } from "../../../utils/imageCompressor";
 
 export default function AdminOrdersPage() {
   const { user } = useAuthStore();
@@ -95,11 +96,22 @@ export default function AdminOrdersPage() {
     loadOrders();
   }, [loadOrders]);
 
+  // Ensure camera stream attaches properly to video element
+  useEffect(() => {
+    if (isCameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch((err) => console.error("Video play error:", err));
+    }
+  }, [isCameraActive]);
+
   // Clean up camera on unmount or modal close
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
   };
@@ -108,49 +120,62 @@ export default function AdminOrdersPage() {
     try {
       stopCamera();
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
         audio: false,
       });
       streamRef.current = stream;
+      setIsCameraActive(true);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-      setIsCameraActive(true);
     } catch (err) {
       console.error("Không thể mở camera:", err);
-      alert("Không thể truy cập camera. Vui lòng cấp quyền hoặc tải ảnh từ máy.");
+      alert("Không thể truy cập camera. Vui lòng cấp quyền trình duyệt hoặc chọn tải ảnh từ máy.");
       setIsCameraActive(false);
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current) return;
+    const v = videoRef.current;
+    const w = v.videoWidth || 640;
+    const h = v.videoHeight || 480;
+
     const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth || 640;
-    canvas.height = videoRef.current.videoHeight || 480;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(v, 0, 0, w, h);
 
     // Watermark
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fillRect(0, h - 45, w, 45);
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 14px sans-serif";
+    ctx.font = "bold 15px sans-serif";
     ctx.fillText(
       `VFT FARMS CHỨNG TỪ: #${selectedOrder?.orderCode || "ORDER"} | ${new Date().toLocaleString("vi-VN")}`,
       15,
-      canvas.height - 15,
+      h - 18,
     );
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    setProofImage(dataUrl);
+    try {
+      const compressed = await compressImage(dataUrl, 1280, 1280, 0.82);
+      setProofImage(compressed);
+    } catch {
+      setProofImage(dataUrl);
+    }
     stopCamera();
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -165,13 +190,19 @@ export default function AdminOrdersPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (typeof event.target?.result === "string") {
-        setProofImage(event.target.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 1280, 1280, 0.82);
+      setProofImage(compressed);
+    } catch (compressErr) {
+      console.warn("Lỗi nén ảnh, sử dụng FileReader:", compressErr);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (typeof event.target?.result === "string") {
+          setProofImage(event.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleOpenUpdateModal = (order: Order) => {
@@ -837,7 +868,13 @@ export default function AdminOrdersPage() {
                 {isCameraActive ? (
                   <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black flex flex-col items-center justify-center">
                     <video
-                      ref={videoRef}
+                      ref={(el) => {
+                        videoRef.current = el;
+                        if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                          el.srcObject = streamRef.current;
+                          el.play().catch(() => {});
+                        }
+                      }}
                       autoPlay
                       playsInline
                       muted

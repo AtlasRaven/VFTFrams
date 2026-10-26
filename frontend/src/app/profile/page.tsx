@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { userService } from "../../services/api";
+import { compressImage } from "../../utils/imageCompressor";
 
 type ProfileTab = "INFO" | "PASSWORD";
 
@@ -81,10 +82,21 @@ export default function ProfilePage() {
     };
   }, []);
 
+  // Ensure camera stream attaches properly to video element
+  useEffect(() => {
+    if (isCameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch((err) => console.error("Video play error:", err));
+    }
+  }, [isCameraActive]);
+
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
   };
@@ -93,15 +105,19 @@ export default function ProfilePage() {
     try {
       stopCamera();
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 640 },
+        },
         audio: false,
       });
       streamRef.current = stream;
+      setIsCameraActive(true);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
       }
-      setIsCameraActive(true);
     } catch (err) {
       console.error("Không thể mở camera:", err);
       setErrorMessage("Không thể truy cập camera. Vui lòng cấp quyền hoặc tải ảnh từ máy tính.");
@@ -109,27 +125,36 @@ export default function ProfilePage() {
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current) return;
+    const v = videoRef.current;
+    const w = v.videoWidth || 480;
+    const h = v.videoHeight || 480;
+
     const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth || 480;
-    canvas.height = videoRef.current.videoHeight || 480;
+    const size = Math.min(w, h);
+    const startX = (w - size) / 2;
+    const startY = (h - size) / 2;
+    canvas.width = 400;
+    canvas.height = 400;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     // Draw square cropped snapshot for avatar
-    const size = Math.min(canvas.width, canvas.height);
-    const startX = (canvas.width - size) / 2;
-    const startY = (canvas.height - size) / 2;
-    ctx.drawImage(videoRef.current, startX, startY, size, size, 0, 0, 400, 400);
+    ctx.drawImage(v, startX, startY, size, size, 0, 0, 400, 400);
 
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-    setAvatarUrl(dataUrl);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    try {
+      const compressed = await compressImage(dataUrl, 400, 400, 0.85);
+      setAvatarUrl(compressed);
+    } catch {
+      setAvatarUrl(dataUrl);
+    }
     stopCamera();
     setSuccessMessage("Đã chụp ảnh đại diện thành công. Bấm 'Lưu Thay Đổi' để hoàn tất.");
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -144,20 +169,21 @@ export default function ProfilePage() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage("Dung lượng tệp quá lớn! Vui lòng chọn ảnh dưới 5MB.");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
+    try {
+      const compressed = await compressImage(file, 500, 500, 0.85);
+      setAvatarUrl(compressed);
+      setSuccessMessage("Đã tải ảnh đại diện từ thiết bị. Bấm 'Lưu Thay Đổi' để hoàn tất.");
+    } catch (compressErr) {
+      console.warn("Lỗi nén ảnh avatar:", compressErr);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (typeof event.target?.result === "string") {
+          setAvatarUrl(event.target.result);
+          setSuccessMessage("Đã tải ảnh đại diện từ thiết bị. Bấm 'Lưu Thay Đổi' để hoàn tất.");
+        }
+      };
+      reader.readAsDataURL(file);
     }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (typeof event.target?.result === "string") {
-        setAvatarUrl(event.target.result);
-        setSuccessMessage("Đã tải ảnh đại diện từ máy tính. Bấm 'Lưu Thay Đổi' để hoàn tất.");
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleApplyUrl = () => {
@@ -492,7 +518,13 @@ export default function ProfilePage() {
           {isCameraActive ? (
             <div className="relative w-full max-w-md aspect-video sm:aspect-4/3 rounded-2xl overflow-hidden bg-black flex flex-col items-center justify-center mx-auto border-2 border-emerald-400">
               <video
-                ref={videoRef}
+                ref={(el) => {
+                  videoRef.current = el;
+                  if (el && streamRef.current && el.srcObject !== streamRef.current) {
+                    el.srcObject = streamRef.current;
+                    el.play().catch(() => {});
+                  }
+                }}
                 autoPlay
                 playsInline
                 muted

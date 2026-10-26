@@ -310,6 +310,37 @@ export const userService = {
     );
     return response.data.data;
   },
+
+  getAddresses: async (): Promise<
+    Array<{
+      id: number;
+      userId: number;
+      recipientName: string;
+      phoneNumber: string;
+      province: string;
+      district: string;
+      ward: string;
+      streetAddress: string;
+      isDefault: boolean;
+    }>
+  > => {
+    const response = await apiClient.get<
+      ApiEnvelope<
+        Array<{
+          id: number;
+          userId: number;
+          recipientName: string;
+          phoneNumber: string;
+          province: string;
+          district: string;
+          ward: string;
+          streetAddress: string;
+          isDefault: boolean;
+        }>
+      >
+    >("/users/addresses");
+    return response.data.data || [];
+  },
 };
 
 export const productService = {

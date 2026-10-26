@@ -1,13 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import axios from "axios";
 import { useCartStore } from "../../store/useCartStore";
-import { orderService } from "../../services/api";
-import { CheckCircle2, ShoppingBag, ArrowLeft } from "lucide-react";
+import { useAuthStore } from "../../store/useAuthStore";
+import { orderService, userService } from "../../services/api";
+import {
+  CheckCircle2,
+  ShoppingBag,
+  ArrowLeft,
+  Sparkles,
+  MapPin,
+  QrCode,
+  ShieldCheck,
+} from "lucide-react";
 import type { Order } from "../../types";
+import { VietQRDisplay } from "../../components/payment/VietQRDisplay";
 
 export default function CheckoutPage() {
   const { items, getTotalAmount, clearCart } = useCartStore();
@@ -25,7 +35,66 @@ export default function CheckoutPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrderCode, setCreatedOrderCode] = useState<string | null>(null);
+  const [submittedPaymentMethod, setSubmittedPaymentMethod] =
+    useState<Order["paymentMethod"]>("COD");
   const [orderError, setOrderError] = useState<string | null>(null);
+
+  const { user, token, hasHydrated } = useAuthStore();
+  const [savedAddresses, setSavedAddresses] = useState<
+    Array<{
+      id: number;
+      recipientName: string;
+      phoneNumber: string;
+      province: string;
+      district: string;
+      ward: string;
+      streetAddress: string;
+      isDefault: boolean;
+    }>
+  >([]);
+  const [autoFilledNotice, setAutoFilledNotice] = useState<string | null>(null);
+
+  // Auto-fill shipping info from user profile and saved addresses
+  useEffect(() => {
+    if (!hasHydrated || !user) return;
+
+    let prefillName = user.fullName || "";
+    let prefillPhone = user.phoneNumber || "";
+    let prefillAddress = "";
+
+    userService
+      .getAddresses()
+      .then((addrs) => {
+        if (addrs && addrs.length > 0) {
+          setSavedAddresses(addrs);
+          const def = addrs.find((a) => a.isDefault) || addrs[0];
+          prefillAddress = `${def.streetAddress}, ${def.ward}, ${def.district}, ${def.province}`;
+          if (def.recipientName) prefillName = def.recipientName;
+          if (def.phoneNumber) prefillPhone = def.phoneNumber;
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          recipientName: prev.recipientName || prefillName,
+          recipientPhone: prev.recipientPhone || prefillPhone,
+          shippingAddress: prev.shippingAddress || prefillAddress,
+        }));
+
+        setAutoFilledNotice(
+          `Đã tự động lấy thông tin giao hàng từ tài khoản "${user.fullName}".`,
+        );
+      })
+      .catch(() => {
+        setFormData((prev) => ({
+          ...prev,
+          recipientName: prev.recipientName || prefillName,
+          recipientPhone: prev.recipientPhone || prefillPhone,
+        }));
+        setAutoFilledNotice(
+          `Đã tự động lấy thông tin giao hàng từ tài khoản "${user.fullName}".`,
+        );
+      });
+  }, [hasHydrated, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +102,7 @@ export default function CheckoutPage() {
 
     setOrderError(null);
     setIsSubmitting(true);
+    setSubmittedPaymentMethod(formData.paymentMethod);
     try {
       const order = await orderService.create({
         recipientName: formData.recipientName,
@@ -89,6 +159,17 @@ export default function CheckoutPage() {
           </strong>
           . Chúng tôi sẽ liên hệ xác nhận và giao hàng nhanh chóng!
         </p>
+
+        {/* Bank Transfer VietQR Payment Card if Payment Method is BANK_TRANSFER */}
+        {submittedPaymentMethod === "BANK_TRANSFER" && (
+          <div className="pt-2 text-left max-w-xl mx-auto">
+            <VietQRDisplay
+              amount={totalAmount}
+              orderCode={createdOrderCode}
+              isConfirmedOrder={true}
+            />
+          </div>
+        )}
         <div className="pt-4 flex flex-wrap justify-center gap-3">
           <Link
             href="/orders"
@@ -164,9 +245,61 @@ export default function CheckoutPage() {
         )}
         {/* Left Form: Delivery Information */}
         <div className="lg:col-span-7 space-y-6 bg-white p-6 rounded-2xl border border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3">
-            Thông Tin Giao Hàng
-          </h2>
+          <div className="border-b border-gray-100 pb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-bold text-gray-900">
+              Thông Tin Giao Hàng
+            </h2>
+            {autoFilledNotice && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-[#2E7D32] border border-emerald-200 text-xs font-semibold">
+                <Sparkles className="w-3.5 h-3.5 text-[#2E7D32]" />
+                <span>Đã lấy từ hồ sơ cá nhân</span>
+              </span>
+            )}
+          </div>
+
+          {/* Profile Autofill Banner / Address Selector */}
+          {user && (
+            <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-900 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#2E7D32] shrink-0" />
+                  {autoFilledNotice ||
+                    `Đang dùng thông tin tài khoản: ${user.fullName}`}
+                </span>
+              </div>
+              {savedAddresses.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-emerald-200/60">
+                  <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    Chọn từ sổ địa chỉ:
+                  </span>
+                  <select
+                    onChange={(e) => {
+                      const addrId = Number(e.target.value);
+                      const selected = savedAddresses.find((a) => a.id === addrId);
+                      if (selected) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          recipientName: selected.recipientName || prev.recipientName,
+                          recipientPhone: selected.phoneNumber || prev.recipientPhone,
+                          shippingAddress: `${selected.streetAddress}, ${selected.ward}, ${selected.district}, ${selected.province}`,
+                        }));
+                      }
+                    }}
+                    className="text-xs font-medium py-1 px-2.5 bg-white border border-emerald-300 rounded-lg text-emerald-800 cursor-pointer"
+                  >
+                    <option value="">-- Danh sách sổ địa chỉ ({savedAddresses.length}) --</option>
+                    {savedAddresses.map((addr) => (
+                      <option key={addr.id} value={addr.id}>
+                        {addr.streetAddress}, {addr.district} ({addr.recipientName}){" "}
+                        {addr.isDefault ? "[Mặc định]" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -282,6 +415,17 @@ export default function CheckoutPage() {
                 </div>
               </label>
             </div>
+
+            {/* VietQR Preview Box if BANK_TRANSFER is selected */}
+            {formData.paymentMethod === "BANK_TRANSFER" && (
+              <div className="pt-2 animate-in fade-in">
+                <VietQRDisplay
+                  amount={totalAmount}
+                  orderCode="VFT THANHTOAN"
+                  isConfirmedOrder={false}
+                />
+              </div>
+            )}
           </div>
         </div>
 
