@@ -7,6 +7,7 @@ import {
   User,
   TraceabilityInfo,
   AdminDashboardStatistics,
+  PaginationInfo,
 } from "../types";
 import { useAuthStore } from "../store/useAuthStore";
 import {
@@ -276,17 +277,86 @@ export const userService = {
 };
 
 export const productService = {
+  getPaginated: async (params?: {
+    categoryId?: number;
+    isBestSeller?: boolean;
+    isFeatured?: boolean;
+    certification?: string;
+    search?: string;
+    limit?: number;
+    page?: number;
+  }): Promise<{ items: Product[]; pagination: PaginationInfo }> => {
+    try {
+      const response = await apiClient.get("/products", {
+        params: {
+          category_id: params?.categoryId,
+          search: params?.search,
+          is_featured: params?.isFeatured,
+          is_best_seller: params?.isBestSeller,
+          certification: params?.certification,
+          limit: params?.limit ?? 12,
+          page: params?.page ?? 1,
+        },
+      });
+      return {
+        items: response.data.data || [],
+        pagination: response.data.pagination || {
+          total: (response.data.data || []).length,
+          page: params?.page ?? 1,
+          limit: params?.limit ?? 12,
+          totalPages: Math.ceil(((response.data.data || []).length) / (params?.limit ?? 12)) || 1,
+        },
+      };
+    } catch (error) {
+      warnApiFallback("Products Paginated", error);
+      let list = [...MOCK_PRODUCTS];
+      if (params?.categoryId) {
+        list = list.filter((p) => p.categoryId === params.categoryId);
+      }
+      if (params?.isBestSeller !== undefined) {
+        list = list.filter((p) => p.isBestSeller === params.isBestSeller);
+      }
+      if (params?.isFeatured !== undefined) {
+        list = list.filter((p) => p.isFeatured === params.isFeatured);
+      }
+      if (params?.certification) {
+        list = list.filter((p) => p.certification === params.certification);
+      }
+      if (params?.search) {
+        const query = params.search.toLowerCase();
+        list = list.filter((p) => p.name.toLowerCase().includes(query));
+      }
+      const page = params?.page ?? 1;
+      const limit = params?.limit ?? 12;
+      const total = list.length;
+      const totalPages = Math.ceil(total / limit) || 1;
+      const offset = (page - 1) * limit;
+      return {
+        items: list.slice(offset, offset + limit),
+        pagination: { total, page, limit, totalPages },
+      };
+    }
+  },
+
   getAll: async (params?: {
     categoryId?: number;
     isBestSeller?: boolean;
+    isFeatured?: boolean;
+    certification?: string;
     search?: string;
+    limit?: number;
+    page?: number;
   }): Promise<Product[]> => {
     try {
       const response = await apiClient.get("/products", {
         params: {
           category_id: params?.categoryId,
           search: params?.search,
-          is_featured: params?.isBestSeller,
+          is_featured: params?.isFeatured,
+          is_best_seller: params?.isBestSeller,
+          certification: params?.certification,
+          limit: params?.limit ?? 100,
+          page: params?.page,
         },
       });
       return response.data.data;
@@ -298,6 +368,12 @@ export const productService = {
       }
       if (params?.isBestSeller !== undefined) {
         list = list.filter((p) => p.isBestSeller === params.isBestSeller);
+      }
+      if (params?.isFeatured !== undefined) {
+        list = list.filter((p) => p.isFeatured === params.isFeatured);
+      }
+      if (params?.certification) {
+        list = list.filter((p) => p.certification === params.certification);
       }
       if (params?.search) {
         const query = params.search.toLowerCase();

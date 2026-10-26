@@ -163,6 +163,9 @@ export class ProductsController {
     @Query('search') search?: string,
     @Query('is_featured') isFeatured?: string,
     @Query('isFeatured') isFeaturedAlt?: string,
+    @Query('is_best_seller') isBestSeller?: string,
+    @Query('isBestSeller') isBestSellerAlt?: string,
+    @Query('certification') certification?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -177,11 +180,19 @@ export class ProductsController {
         : isFeaturedAlt !== undefined
           ? isFeaturedAlt === 'true'
           : undefined;
+    const bestSellerFlag =
+      isBestSeller !== undefined
+        ? isBestSeller === 'true'
+        : isBestSellerAlt !== undefined
+          ? isBestSellerAlt === 'true'
+          : undefined;
 
     const data = await this.productsService.findAll({
       categoryId: catId,
       search,
       isFeatured: featuredFlag,
+      isBestSeller: bestSellerFlag,
+      certification,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });

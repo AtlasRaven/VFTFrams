@@ -28,6 +28,7 @@ function ProductDetailContent() {
   const slug = params?.slug as string;
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
@@ -42,14 +43,31 @@ function ProductDetailContent() {
       .then((data) => {
         if (data) {
           setProduct(data);
+          // Tải sản phẩm liên quan theo danh mục thực tế
+          productService
+            .getAll({ categoryId: data.categoryId, limit: 5 })
+            .then((list) => {
+              if (Array.isArray(list)) {
+                setRelatedProducts(list.filter((p) => p.id !== data.id).slice(0, 4));
+              }
+            })
+            .catch(() => {
+              setRelatedProducts(MOCK_PRODUCTS.filter((p) => p.id !== data.id).slice(0, 4));
+            });
         } else {
           const fallback = MOCK_PRODUCTS.find((p) => p.slug === slug);
           setProduct(fallback || null);
+          if (fallback) {
+            setRelatedProducts(MOCK_PRODUCTS.filter((p) => p.id !== fallback.id).slice(0, 4));
+          }
         }
       })
       .catch(() => {
         const fallback = MOCK_PRODUCTS.find((p) => p.slug === slug);
         setProduct(fallback || null);
+        if (fallback) {
+          setRelatedProducts(MOCK_PRODUCTS.filter((p) => p.id !== fallback.id).slice(0, 4));
+        }
       })
       .finally(() => {
         setIsLoading(false);
@@ -83,8 +101,9 @@ function ProductDetailContent() {
     setTimeout(() => setAdded(false), 2000);
   };
 
-  const relatedProducts = MOCK_PRODUCTS.filter((p) => p.id !== product.id).slice(0, 4);
   const price = product.salePrice ?? product.price;
+  const imageSrc = product.imageUrl || '/images/products/cabbage.svg';
+  const isSvg = imageSrc.toLowerCase().endsWith('.svg');
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -108,10 +127,11 @@ function ProductDetailContent() {
           )}
           <div className="relative w-full max-w-[340px] aspect-square flex items-center justify-center">
             <Image
-              src={product.imageUrl}
+              src={imageSrc}
               alt={product.name}
               width={340}
               height={340}
+              unoptimized={isSvg}
               className="object-contain max-h-[300px]"
               priority
             />
@@ -232,16 +252,18 @@ function ProductDetailContent() {
       </div>
 
       {/* Related Products */}
-      <div className="space-y-6">
-        <h2 className="text-xl font-black text-gray-900 tracking-tight">
-          Sản Phẩm Cùng Loại
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
-          {relatedProducts.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
+      {relatedProducts.length > 0 && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-black text-gray-900 tracking-tight">
+            Sản Phẩm Cùng Loại
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+            {relatedProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Traceability Modal */}
       <TraceabilityModal

@@ -34,6 +34,7 @@ export interface ProductQueryParams {
   search?: string;
   isFeatured?: boolean;
   isBestSeller?: boolean;
+  certification?: string;
   page?: number;
   limit?: number;
 }
@@ -126,7 +127,14 @@ export class ProductsService {
     };
 
     if (params.categoryId !== undefined) {
-      addCondition('category_id = ?', params.categoryId);
+      values.push(params.categoryId);
+      const paramIdx = values.length;
+      conditions.push(
+        `category_id IN (SELECT id FROM categories WHERE id = $${paramIdx} OR parent_id = $${paramIdx})`,
+      );
+    }
+    if (params.certification?.trim()) {
+      addCondition('certification = ?', params.certification.trim());
     }
     if (params.isFeatured !== undefined) {
       addCondition('is_featured = ?', params.isFeatured);

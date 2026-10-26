@@ -143,6 +143,18 @@ export interface NewsArticle {
   updatedAt: string;
 }
 
+export interface PaginationInfo {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginatedProductsResponse {
+  items: Product[];
+  pagination: PaginationInfo;
+}
+
 export interface NewsListResponse {
   items: NewsArticle[];
   total: number;
@@ -150,6 +162,7 @@ export interface NewsListResponse {
   limit: number;
   totalPages: number;
 }
+
 
 
 

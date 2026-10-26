@@ -1,14 +1,55 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { HeroBanner } from '../components/common/HeroBanner';
 import { ProductSlider } from '../components/product/ProductSlider';
 import { ProductCard } from '../components/product/ProductCard';
+import { productService, categoryService } from '../services/api';
 import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '../data/mockData';
+import type { Product, Category } from '../types';
 import { ShieldCheck, Truck, Clock, RefreshCw, Award, HeartHandshake } from 'lucide-react';
 
 export default function HomePage() {
-  const bestSellers = MOCK_PRODUCTS.filter((p) => p.isBestSeller);
-  const featuredProducts = MOCK_PRODUCTS.filter((p) => p.isFeatured);
+  const [bestSellers, setBestSellers] = useState<Product[]>(() =>
+    MOCK_PRODUCTS.filter((p) => p.isBestSeller),
+  );
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>(() =>
+    MOCK_PRODUCTS.filter((p) => p.isFeatured),
+  );
+  const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
+
+  useEffect(() => {
+    // 1. Tải nông sản bán chạy từ Backend API
+    productService
+      .getAll({ isBestSeller: true, limit: 12 })
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setBestSellers(data);
+        }
+      })
+      .catch((err) => console.warn('Lỗi tải sản phẩm bán chạy:', err));
+
+    // 2. Tải nông sản tươi mới nổi bật từ Backend API
+    productService
+      .getAll({ isFeatured: true, limit: 12 })
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setFeaturedProducts(data);
+        }
+      })
+      .catch((err) => console.warn('Lỗi tải sản phẩm nổi bật:', err));
+
+    // 3. Tải 10 danh mục nông nghiệp từ Backend API
+    categoryService
+      .getAll()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setCategories(data.slice(0, 10));
+        }
+      })
+      .catch((err) => console.warn('Lỗi tải danh mục trang chủ:', err));
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -81,8 +122,8 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-            {MOCK_CATEGORIES.map((cat) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+            {categories.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/products?category=${cat.id}`}
@@ -91,11 +132,11 @@ export default function HomePage() {
                 <div className="w-12 h-12 rounded-full bg-[#E8F5E9] group-hover:bg-[#2E7D32] text-[#2E7D32] group-hover:text-white flex items-center justify-center font-bold text-lg transition-colors">
                   {cat.name.charAt(0)}
                 </div>
-                <span className="text-sm font-bold text-gray-800 group-hover:text-[#2E7D32] transition-colors">
+                <span className="text-sm font-bold text-gray-800 group-hover:text-[#2E7D32] transition-colors line-clamp-1">
                   {cat.name}
                 </span>
                 <span className="text-[11px] text-gray-400">
-                  {cat.subcategories?.length || 0}+ loại
+                  10 nông sản
                 </span>
               </Link>
             ))}

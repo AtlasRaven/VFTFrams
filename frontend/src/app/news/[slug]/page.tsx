@@ -47,12 +47,12 @@ function NewsDetailContent() {
         // Load related & top articles
         try {
           const listRes = await newsService.getAll({ limit: 6 });
-          const others = listRes.items.filter((item) => item.id !== data.id);
+          const others = listRes.items.filter((item: NewsArticle) => item.id !== data.id);
           setRelatedArticles(
-            others.filter((item) => item.category === data.category).slice(0, 3),
+            others.filter((item: NewsArticle) => item.category === data.category).slice(0, 3),
           );
           setTopArticles(
-            [...others].sort((a, b) => b.views - a.views).slice(0, 4),
+            [...others].sort((a: NewsArticle, b: NewsArticle) => b.views - a.views).slice(0, 4),
           );
         } catch {
           // ignore related load error

@@ -1,18 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Menu, ShoppingBag, X } from 'lucide-react';
 import { MegaMenu } from './MegaMenu';
 import { PolicyDropdown } from './PolicyDropdown';
 import { useCartStore } from '../../store/useCartStore';
+import { categoryService } from '../../services/api';
 import { MOCK_CATEGORIES } from '../../data/mockData';
+import type { Category } from '../../types';
 
 export const NavBar: React.FC = () => {
   const { toggleDrawer, getTotalItems } = useCartStore();
   const totalItems = getTotalItems();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
+
+  useEffect(() => {
+    categoryService
+      .getAll()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          // Lấy các danh mục gốc (không có parentId)
+          const roots = data.filter((c) => !c.parentId);
+          setCategories(roots.length > 0 ? roots : data.slice(0, 8));
+        }
+      })
+      .catch((err) => {
+        console.warn('Lỗi tải danh mục NavBar:', err);
+      });
+  }, []);
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-xs">
@@ -31,10 +49,10 @@ export const NavBar: React.FC = () => {
             {/* Quick Category Dropdown for this button */}
             {categoryMenuOpen && (
               <div
-                className="absolute left-0 top-full mt-1 w-60 bg-white rounded-md shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
+                className="absolute left-0 top-full mt-1 w-64 bg-white rounded-md shadow-xl border border-gray-100 py-2 z-50 max-h-[460px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150"
                 onMouseLeave={() => setCategoryMenuOpen(false)}
               >
-                {MOCK_CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                   <Link
                     key={cat.id}
                     href={`/products?category=${cat.id}`}

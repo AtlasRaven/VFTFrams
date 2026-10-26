@@ -23,6 +23,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, className = '
   };
 
   const formattedPrice = (product.salePrice ?? product.price).toLocaleString('vi-VN');
+  const imageSrc =
+    product.imageUrl && product.imageUrl.trim() !== ''
+      ? product.imageUrl
+      : '/images/products/cabbage.svg';
+  const isSvg = imageSrc.toLowerCase().endsWith('.svg');
 
   return (
     <div
@@ -41,10 +46,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, className = '
         className="relative w-full aspect-square bg-[#FBFDFB] flex items-center justify-center p-4 overflow-hidden"
       >
         <Image
-          src={product.imageUrl}
+          src={imageSrc}
           alt={product.name}
           width={220}
           height={220}
+          unoptimized={isSvg}
           className="object-contain w-full h-full max-h-[190px] group-hover:scale-105 transition-transform duration-300"
         />
       </Link>

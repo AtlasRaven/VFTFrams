@@ -10,6 +10,7 @@ import { map } from 'rxjs/operators';
 export interface Response<T> {
   success: boolean;
   data: T;
+  pagination?: unknown;
   message: string;
 }
 
@@ -23,6 +24,7 @@ export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> 
           return {
             success: res.success ?? true,
             data: res.data !== undefined ? res.data : null,
+            ...(res.pagination !== undefined ? { pagination: res.pagination } : {}),
             message: res.message || 'Thao tác thành công',
           };
         }
