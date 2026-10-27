@@ -338,7 +338,7 @@ export class UsersService {
     const result = await this.database.query<AddressRow>(
       `SELECT id, user_id, recipient_name, phone_number, province, district,
               ward, street_address, is_default, created_at
-       FROM addresses WHERE user_id = $1 ORDER BY id`,
+       FROM addresses WHERE user_id = $1 ORDER BY is_default DESC, id ASC`,
       [userId],
     );
     return result.rows.map(toAddress);
@@ -378,14 +378,53 @@ export class UsersService {
                    district, ward, street_address, is_default, created_at`,
         [
           userId,
-          dto.recipientName,
-          dto.phoneNumber,
-          dto.province,
-          dto.district,
-          dto.ward,
-          dto.streetAddress,
+          dto.recipientName.trim(),
+          dto.phoneNumber.trim(),
+          dto.province?.trim() || 'Việt Nam',
+          dto.district?.trim() || '',
+          dto.ward?.trim() || '',
+          dto.streetAddress.trim(),
           isDefault,
         ],
+      );
+      return toAddress(result.rows[0]);
+    });
+  }
+
+  async deleteAddress(userId: number, addressId: number): Promise<void> {
+    const result = await this.database.query(
+      'DELETE FROM addresses WHERE id = $1 AND user_id = $2 RETURNING id',
+      [addressId, userId],
+    );
+    if (!result.rowCount) {
+      throw new NotFoundException(`Địa chỉ #${addressId} không tồn tại.`);
+    }
+  }
+
+  async setDefaultAddress(
+    userId: number,
+    addressId: number,
+  ): Promise<AddressEntity> {
+    return this.database.withTransaction(async (client: PoolClient) => {
+      const check = await client.query(
+        'SELECT id FROM addresses WHERE id = $1 AND user_id = $2',
+        [addressId, userId],
+      );
+      if (!check.rowCount) {
+        throw new NotFoundException(`Địa chỉ #${addressId} không tồn tại.`);
+      }
+
+      await client.query(
+        'UPDATE addresses SET is_default = false WHERE user_id = $1',
+        [userId],
+      );
+
+      const result = await client.query<AddressRow>(
+        `UPDATE addresses SET is_default = true, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND user_id = $2
+         RETURNING id, user_id, recipient_name, phone_number, province,
+                   district, ward, street_address, is_default, created_at`,
+        [addressId, userId],
       );
       return toAddress(result.rows[0]);
     });

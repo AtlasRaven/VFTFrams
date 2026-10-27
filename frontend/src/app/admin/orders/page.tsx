@@ -78,22 +78,37 @@ export default function AdminOrdersPage() {
   const [traceProductId, setTraceProductId] = useState<number | null>(null);
   const [traceProductName, setTraceProductName] = useState<string>("");
 
-  const loadOrders = useCallback(async () => {
-    setIsLoading(true);
+  const loadOrders = useCallback(async (arg?: boolean | unknown) => {
+    const silent = arg === true;
+    if (!silent) setIsLoading(true);
     setError(null);
     try {
       const data = await orderService.getAllForAdmin();
       setOrders(data);
     } catch (err: unknown) {
       console.error("Lỗi khi tải đơn hàng cho Admin:", err);
-      setError("Không thể tải danh sách đơn hàng. Vui lòng kiểm tra quyền truy cập.");
+      if (!silent) {
+        setError("Không thể tải danh sách đơn hàng. Vui lòng kiểm tra quyền truy cập.");
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadOrders();
+  }, [loadOrders]);
+
+  // Real-time synchronization: auto-refresh on window focus & every 20 seconds
+  useEffect(() => {
+    const handleFocus = () => loadOrders(true);
+    window.addEventListener("focus", handleFocus);
+    const interval = setInterval(() => loadOrders(true), 20000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      clearInterval(interval);
+    };
   }, [loadOrders]);
 
   // Ensure camera stream attaches properly to video element

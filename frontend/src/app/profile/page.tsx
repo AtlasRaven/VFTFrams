@@ -24,12 +24,16 @@ import {
   Calendar,
   X,
   Sparkles,
+  MapPin,
+  Plus,
+  Check,
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { userService } from "../../services/api";
 import { compressImage } from "../../utils/imageCompressor";
+import type { UserAddress } from "../../types";
 
-type ProfileTab = "INFO" | "PASSWORD";
+type ProfileTab = "INFO" | "ADDRESSES" | "PASSWORD";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -43,6 +47,19 @@ export default function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarInputUrl, setAvatarInputUrl] = useState("");
   const [showUrlInput, setShowUrlInput] = useState(false);
+
+  // Address states
+  const [addresses, setAddresses] = useState<UserAddress[]>([]);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+  const [showAddAddressForm, setShowAddAddressForm] = useState(false);
+  const [newRecipientName, setNewRecipientName] = useState("");
+  const [newRecipientPhone, setNewRecipientPhone] = useState("");
+  const [newStreetAddress, setNewStreetAddress] = useState("");
+  const [newWard, setNewWard] = useState("");
+  const [newDistrict, setNewDistrict] = useState("");
+  const [newProvince, setNewProvince] = useState("");
+  const [newIsDefault, setNewIsDefault] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
 
   // Camera capture state
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -74,6 +91,82 @@ export default function ProfilePage() {
     setPhoneNumber(user.phoneNumber || "");
     setAvatarUrl(user.avatarUrl || "");
   }, [hasHydrated, token, user, router]);
+
+  const loadAddresses = async (force = false) => {
+    setIsLoadingAddresses(true);
+    try {
+      const data = await userService.getAddresses(force);
+      setAddresses(data);
+    } catch (err) {
+      console.error("Lỗi tải danh sách địa chỉ:", err);
+    } finally {
+      setIsLoadingAddresses(false);
+    }
+  };
+
+  useEffect(() => {
+    if (hasHydrated && token && user) {
+      loadAddresses();
+    }
+  }, [hasHydrated, token, user]);
+
+  const handleAddAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRecipientName.trim() || !newRecipientPhone.trim() || !newStreetAddress.trim()) {
+      setErrorMessage("Vui lòng điền đầy đủ tên người nhận, số điện thoại và địa chỉ nhận hàng.");
+      return;
+    }
+    setIsSavingAddress(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await userService.addAddress({
+        recipientName: newRecipientName.trim(),
+        phoneNumber: newRecipientPhone.trim(),
+        streetAddress: newStreetAddress.trim(),
+        ward: newWard.trim(),
+        district: newDistrict.trim(),
+        province: newProvince.trim(),
+        isDefault: newIsDefault,
+      });
+      await loadAddresses(true);
+      setShowAddAddressForm(false);
+      setNewStreetAddress("");
+      setNewWard("");
+      setNewDistrict("");
+      setNewProvince("");
+      setNewIsDefault(false);
+      setSuccessMessage("Đã thêm địa chỉ nhận hàng mới thành công!");
+    } catch (err: unknown) {
+      console.error("Lỗi thêm địa chỉ:", err);
+      setErrorMessage("Không thể lưu địa chỉ. Vui lòng kiểm tra lại thông tin.");
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
+  const handleDeleteAddress = async (id: number) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa địa chỉ nhận hàng này?")) return;
+    try {
+      await userService.deleteAddress(id);
+      await loadAddresses(true);
+      setSuccessMessage("Đã xóa địa chỉ thành công.");
+    } catch (err) {
+      console.error("Lỗi xóa địa chỉ:", err);
+      setErrorMessage("Không thể xóa địa chỉ nhận hàng.");
+    }
+  };
+
+  const handleSetDefaultAddress = async (id: number) => {
+    try {
+      await userService.setDefaultAddress(id);
+      await loadAddresses(true);
+      setSuccessMessage("Đã đặt làm địa chỉ giao hàng mặc định cho tài khoản.");
+    } catch (err) {
+      console.error("Lỗi đặt địa chỉ mặc định:", err);
+      setErrorMessage("Không thể đặt địa chỉ mặc định.");
+    }
+  };
 
   // Clean up camera on unmount
   useEffect(() => {
@@ -465,7 +558,7 @@ export default function ProfilePage() {
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-gray-200 text-xs sm:text-sm font-bold">
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 text-xs sm:text-sm font-bold">
         <button
           type="button"
           onClick={() => {
@@ -481,6 +574,27 @@ export default function ProfilePage() {
         >
           <UserIcon className="w-4 h-4" />
           <span>Thông Tin Cá Nhân & Ảnh Đại Diện</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("ADDRESSES");
+            setErrorMessage(null);
+            setSuccessMessage(null);
+            if (!newRecipientName && user) {
+              setNewRecipientName(user.fullName || "");
+              setNewRecipientPhone(user.phoneNumber || "");
+            }
+          }}
+          className={`pb-3 px-4 border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "ADDRESSES"
+              ? "border-[#2E7D32] text-[#2E7D32]"
+              : "border-transparent text-gray-500 hover:text-gray-900"
+          }`}
+        >
+          <MapPin className="w-4 h-4" />
+          <span>Sổ Địa Chỉ Giao Hàng ({addresses.length})</span>
         </button>
 
         <button
@@ -746,7 +860,282 @@ export default function ProfilePage() {
         </form>
       )}
 
-      {/* Tab 2: Password Security */}
+      {/* Tab 2: Delivery Addresses */}
+      {activeTab === "ADDRESSES" && (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-gray-100">
+            <div>
+              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-[#2E7D32]" />
+                <span>Sổ Địa Chỉ Giao Hàng</span>
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Lưu các địa chỉ nhận hàng để hệ thống tự động điền sẵn vào ô thông tin khi bạn đặt hàng và thanh toán nông sản.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddAddressForm(!showAddAddressForm);
+                if (!newRecipientName && user) {
+                  setNewRecipientName(user.fullName || "");
+                  setNewRecipientPhone(user.phoneNumber || "");
+                }
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-xs font-bold shadow transition-all cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{showAddAddressForm ? "Đóng biểu mẫu" : "Thêm Địa Chỉ Mới"}</span>
+            </button>
+          </div>
+
+          {/* Form thêm địa chỉ mới */}
+          {showAddAddressForm && (
+            <form
+              onSubmit={handleAddAddress}
+              className="p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200"
+            >
+              <h4 className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#2E7D32]" />
+                <span>Nhập thông tin địa chỉ giao hàng mới</span>
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Tên người nhận hàng *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newRecipientName}
+                    onChange={(e) => setNewRecipientName(e.target.value)}
+                    placeholder="VD: Nguyễn Văn A"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#2E7D32] focus:border-[#2E7D32]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Số điện thoại nhận hàng *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={newRecipientPhone}
+                    onChange={(e) => setNewRecipientPhone(e.target.value)}
+                    placeholder="VD: 0912345678"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#2E7D32] focus:border-[#2E7D32]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Địa chỉ chi tiết (Số nhà, ngõ/ngách, tên đường) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newStreetAddress}
+                  onChange={(e) => setNewStreetAddress(e.target.value)}
+                  placeholder="VD: Số 123 Đường Trần Duy Hưng"
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#2E7D32] focus:border-[#2E7D32]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Phường / Xã
+                  </label>
+                  <input
+                    type="text"
+                    value={newWard}
+                    onChange={(e) => setNewWard(e.target.value)}
+                    placeholder="VD: Phường Trung Hòa"
+                    className="w-full px-3 py-2 text-xs bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#2E7D32]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Quận / Huyện
+                  </label>
+                  <input
+                    type="text"
+                    value={newDistrict}
+                    onChange={(e) => setNewDistrict(e.target.value)}
+                    placeholder="VD: Cầu Giấy"
+                    className="w-full px-3 py-2 text-xs bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#2E7D32]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Tỉnh / Thành phố
+                  </label>
+                  <input
+                    type="text"
+                    value={newProvince}
+                    onChange={(e) => setNewProvince(e.target.value)}
+                    placeholder="VD: Hà Nội"
+                    className="w-full px-3 py-2 text-xs bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#2E7D32]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="defaultAddressCheckbox"
+                  checked={newIsDefault}
+                  onChange={(e) => setNewIsDefault(e.target.checked)}
+                  className="w-4 h-4 text-[#2E7D32] rounded focus:ring-[#2E7D32] cursor-pointer"
+                />
+                <label
+                  htmlFor="defaultAddressCheckbox"
+                  className="text-xs font-semibold text-gray-800 cursor-pointer"
+                >
+                  Đặt làm địa chỉ nhận hàng mặc định (tự động điền ưu tiên khi đặt hàng)
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddAddressForm(false)}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-900 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingAddress}
+                  className="px-5 py-2.5 rounded-xl bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-xs font-bold shadow transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSavingAddress ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Lưu Địa Chỉ Này</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Danh sách địa chỉ đã lưu */}
+          {isLoadingAddresses ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-gray-500">
+              <Loader2 className="w-6 h-6 animate-spin text-[#2E7D32]" />
+              <p className="text-xs font-medium">Đang tải sổ địa chỉ...</p>
+            </div>
+          ) : addresses.length === 0 ? (
+            <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-gray-300 bg-gray-50/50 space-y-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-[#2E7D32] flex items-center justify-center mx-auto">
+                <MapPin className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-gray-800">
+                Chưa có địa chỉ nhận hàng nào được lưu
+              </h4>
+              <p className="text-xs text-gray-500 max-w-md mx-auto">
+                Thêm địa chỉ nhà riêng hoặc văn phòng của bạn. Hệ thống sẽ tự động điền sẵn tên, số điện thoại và địa chỉ nhận hàng mỗi khi bạn thanh toán.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddAddressForm(true);
+                  if (!newRecipientName && user) {
+                    setNewRecipientName(user.fullName || "");
+                    setNewRecipientPhone(user.phoneNumber || "");
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2E7D32] text-white text-xs font-bold hover:bg-[#1B5E20] transition-colors cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Thêm địa chỉ đầu tiên</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {addresses.map((addr) => {
+                const fullText = [
+                  addr.streetAddress,
+                  addr.ward,
+                  addr.district,
+                  addr.province,
+                ]
+                  .filter(Boolean)
+                  .join(", ");
+
+                return (
+                  <div
+                    key={addr.id}
+                    className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                      addr.isDefault
+                        ? "bg-emerald-50/40 border-emerald-300 ring-1 ring-emerald-300"
+                        : "bg-white border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                          {addr.recipientName}
+                          <span className="text-xs font-medium text-gray-500">
+                            ({addr.phoneNumber})
+                          </span>
+                        </span>
+                        {addr.isDefault && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-[#2E7D32] text-[10px] font-bold border border-emerald-300">
+                            <Check className="w-3 h-3" />
+                            <span>Mặc định</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-gray-600 leading-relaxed flex items-start gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                        <span>{fullText}</span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100 text-xs">
+                      {!addr.isDefault ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSetDefaultAddress(addr.id)}
+                          className="text-[#2E7D32] hover:underline font-semibold cursor-pointer"
+                        >
+                          Thiết lập mặc định
+                        </button>
+                      ) : (
+                        <span className="text-emerald-700 text-[11px] font-medium">
+                          ✓ Ưu tiên điền khi đặt hàng
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAddress(addr.id)}
+                        className="text-gray-400 hover:text-rose-600 transition-colors p-1 cursor-pointer flex items-center gap-1 text-[11px]"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Xóa</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 3: Password Security */}
       {activeTab === "PASSWORD" && (
         <form onSubmit={handleSavePassword} className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200 space-y-6">
           <div>

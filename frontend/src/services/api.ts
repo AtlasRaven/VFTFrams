@@ -5,6 +5,7 @@ import {
   Policy,
   Order,
   User,
+  UserAddress,
   TraceabilityInfo,
   AdminDashboardStatistics,
   PaginationInfo,
@@ -26,11 +27,53 @@ function warnApiFallback(resource: string, error: unknown) {
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 5000,
+  timeout: 10000,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+// Fast Client-Side In-Memory Cache & Request Deduplication
+const apiCache = new Map<string, { data: any; expiry: number }>();
+const inFlightRequests = new Map<string, Promise<any>>();
+
+export function invalidateCache(pattern?: string): void {
+  if (!pattern) {
+    apiCache.clear();
+    return;
+  }
+  for (const key of Array.from(apiCache.keys())) {
+    if (key.includes(pattern)) {
+      apiCache.delete(key);
+    }
+  }
+}
+
+export async function cachedRequest<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  ttlMs = 45000,
+): Promise<T> {
+  const cached = apiCache.get(key);
+  if (cached && Date.now() < cached.expiry) {
+    return cached.data;
+  }
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key)!;
+  }
+  const promise = fetcher()
+    .then((result) => {
+      apiCache.set(key, { data: result, expiry: Date.now() + ttlMs });
+      inFlightRequests.delete(key);
+      return result;
+    })
+    .catch((err) => {
+      inFlightRequests.delete(key);
+      throw err;
+    });
+  inFlightRequests.set(key, promise);
+  return promise;
+}
 
 apiClient.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
@@ -308,38 +351,54 @@ export const userService = {
       "/users/me/profile",
       data,
     );
+    invalidateCache("/users");
     return response.data.data;
   },
 
-  getAddresses: async (): Promise<
-    Array<{
-      id: number;
-      userId: number;
-      recipientName: string;
-      phoneNumber: string;
-      province: string;
-      district: string;
-      ward: string;
-      streetAddress: string;
-      isDefault: boolean;
-    }>
-  > => {
-    const response = await apiClient.get<
-      ApiEnvelope<
-        Array<{
-          id: number;
-          userId: number;
-          recipientName: string;
-          phoneNumber: string;
-          province: string;
-          district: string;
-          ward: string;
-          streetAddress: string;
-          isDefault: boolean;
-        }>
-      >
-    >("/users/addresses");
-    return response.data.data || [];
+  getAddresses: async (forceRefresh = false): Promise<UserAddress[]> => {
+    if (forceRefresh) {
+      invalidateCache("/users/addresses");
+    }
+    return cachedRequest(
+      "/users/addresses",
+      async () => {
+        const response = await apiClient.get<ApiEnvelope<UserAddress[]>>(
+          "/users/addresses",
+        );
+        return response.data.data || [];
+      },
+      15000,
+    );
+  },
+
+  addAddress: async (data: {
+    recipientName: string;
+    phoneNumber: string;
+    streetAddress: string;
+    province?: string;
+    district?: string;
+    ward?: string;
+    isDefault?: boolean;
+  }): Promise<UserAddress> => {
+    const response = await apiClient.post<ApiEnvelope<UserAddress>>(
+      "/users/addresses",
+      data,
+    );
+    invalidateCache("/users/addresses");
+    return response.data.data;
+  },
+
+  deleteAddress: async (id: number): Promise<void> => {
+    await apiClient.delete(`/users/addresses/${id}`);
+    invalidateCache("/users/addresses");
+  },
+
+  setDefaultAddress: async (id: number): Promise<UserAddress> => {
+    const response = await apiClient.patch<ApiEnvelope<UserAddress>>(
+      `/users/addresses/${id}/default`,
+    );
+    invalidateCache("/users/addresses");
+    return response.data.data;
   },
 };
 
@@ -482,6 +541,7 @@ export const productService = {
       "/products",
       data,
     );
+    invalidateCache("/products");
     return response.data.data;
   },
 
@@ -495,11 +555,13 @@ export const productService = {
       `/products/${id}`,
       data,
     );
+    invalidateCache("/products");
     return response.data.data;
   },
 
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/products/${id}`);
+    invalidateCache("/products");
   },
 
   getTraceability: async (id: number): Promise<TraceabilityInfo> => {
@@ -512,23 +574,35 @@ export const productService = {
 
 export const categoryService = {
   getTree: async (): Promise<Category[]> => {
-    try {
-      const response = await apiClient.get("/categories/tree");
-      return response.data.data;
-    } catch (error) {
-      warnApiFallback("Category tree", error);
-      return MOCK_CATEGORIES;
-    }
+    return cachedRequest(
+      "/categories/tree",
+      async () => {
+        try {
+          const response = await apiClient.get("/categories/tree");
+          return response.data.data;
+        } catch (error) {
+          warnApiFallback("Category tree", error);
+          return MOCK_CATEGORIES;
+        }
+      },
+      60000,
+    );
   },
 
   getAll: async (): Promise<Category[]> => {
-    try {
-      const response = await apiClient.get("/categories");
-      return response.data.data;
-    } catch (error) {
-      warnApiFallback("Categories", error);
-      return MOCK_CATEGORIES;
-    }
+    return cachedRequest(
+      "/categories",
+      async () => {
+        try {
+          const response = await apiClient.get("/categories");
+          return response.data.data;
+        } catch (error) {
+          warnApiFallback("Categories", error);
+          return MOCK_CATEGORIES;
+        }
+      },
+      60000,
+    );
   },
 
   getAllForAdmin: async (): Promise<Category[]> => {
@@ -539,23 +613,35 @@ export const categoryService = {
 
 export const policyService = {
   getAll: async (): Promise<Policy[]> => {
-    try {
-      const response = await apiClient.get("/policies");
-      return response.data.data;
-    } catch (error) {
-      warnApiFallback("Policies", error);
-      return MOCK_POLICIES;
-    }
+    return cachedRequest(
+      "/policies",
+      async () => {
+        try {
+          const response = await apiClient.get("/policies");
+          return response.data.data;
+        } catch (error) {
+          warnApiFallback("Policies", error);
+          return MOCK_POLICIES;
+        }
+      },
+      60000,
+    );
   },
 
   getBySlug: async (slug: string): Promise<Policy | undefined> => {
-    try {
-      const response = await apiClient.get(`/policies/${slug}`);
-      return response.data.data;
-    } catch (error) {
-      warnApiFallback("Policy detail", error);
-      return MOCK_POLICIES.find((p) => p.slug === slug);
-    }
+    return cachedRequest(
+      `/policies/${slug}`,
+      async () => {
+        try {
+          const response = await apiClient.get(`/policies/${slug}`);
+          return response.data.data;
+        } catch (error) {
+          warnApiFallback("Policy detail", error);
+          return MOCK_POLICIES.find((p) => p.slug === slug);
+        }
+      },
+      60000,
+    );
   },
 };
 
@@ -575,6 +661,8 @@ export const orderService = {
     }[];
   }): Promise<Order> => {
     const response = await apiClient.post<ApiEnvelope<Order>>("/orders", data);
+    invalidateCache("/orders");
+    invalidateCache("/products");
     return response.data.data;
   },
 
@@ -662,6 +750,7 @@ export const orderService = {
 
   cancelOrder: async (id: number): Promise<Order> => {
     const response = await apiClient.patch<ApiEnvelope<Order>>(`/orders/${id}/cancel`);
+    invalidateCache("/orders");
     return response.data.data;
   },
 
@@ -678,6 +767,7 @@ export const orderService = {
       proofImageUrl,
       proofNote,
     });
+    invalidateCache("/orders");
     return response.data.data;
   },
 

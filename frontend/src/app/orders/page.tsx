@@ -68,17 +68,20 @@ export default function OrdersPage() {
   // VietQR Payment Modal
   const [qrModalOrder, setQrModalOrder] = useState<Order | null>(null);
 
-  const loadOrders = useCallback(async () => {
-    setIsLoading(true);
+  const loadOrders = useCallback(async (arg?: boolean | unknown) => {
+    const silent = arg === true;
+    if (!silent) setIsLoading(true);
     setError(null);
     try {
       const data = await orderService.getAll();
       setOrders(data);
     } catch (err: unknown) {
       console.error("Lỗi tải đơn hàng:", err);
-      setError("Không thể tải danh sách đơn hàng. Vui lòng thử lại sau.");
+      if (!silent) {
+        setError("Không thể tải danh sách đơn hàng. Vui lòng thử lại sau.");
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
 
@@ -91,6 +94,33 @@ export default function OrdersPage() {
     }
     loadOrders();
   }, [hasHydrated, token, loadOrders]);
+
+  // Fast database-to-frontend synchronization: auto-revalidate on focus & poll active orders
+  useEffect(() => {
+    const handleFocus = () => {
+      if (token) loadOrders(true);
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [token, loadOrders]);
+
+  useEffect(() => {
+    if (!token) return;
+    const hasActiveOrders = orders.some(
+      (o) =>
+        o.orderStatus === "PENDING" ||
+        o.orderStatus === "CONFIRMED" ||
+        o.orderStatus === "PROCESSING" ||
+        o.orderStatus === "SHIPPING",
+    );
+    if (!hasActiveOrders) return;
+
+    const interval = setInterval(() => {
+      loadOrders(true);
+    }, 15000); // 15 seconds real-time background sync
+
+    return () => clearInterval(interval);
+  }, [token, orders, loadOrders]);
 
   const handleConfirmCancel = async () => {
     if (!cancelModalOrder) return;

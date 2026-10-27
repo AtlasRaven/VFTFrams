@@ -194,6 +194,36 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Delete('addresses/:id')
+  async deleteAddress(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const userId = Number(user.sub || user.id);
+    await this.usersService.deleteAddress(userId, id);
+    return {
+      success: true,
+      data: null,
+      message: 'Xóa địa chỉ giao hàng thành công',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('addresses/:id/default')
+  async setDefaultAddress(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const userId = Number(user.sub || user.id);
+    const address = await this.usersService.setDefaultAddress(userId, id);
+    return {
+      success: true,
+      data: address,
+      message: 'Đã đặt địa chỉ làm mặc định',
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async getById(
     @Param('id', ParseIntPipe) id: number,

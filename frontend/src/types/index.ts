@@ -55,6 +55,19 @@ export interface User {
   isActive?: boolean;
 }
 
+export interface UserAddress {
+  id: number;
+  userId: number;
+  recipientName: string;
+  phoneNumber: string;
+  province: string;
+  district: string;
+  ward: string;
+  streetAddress: string;
+  isDefault: boolean;
+  createdAt?: string;
+}
+
 export interface OrderItem {
   productId: number;
   productName: string;

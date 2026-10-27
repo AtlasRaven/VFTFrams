@@ -46,9 +46,39 @@ function createOrderService() {
       return true;
     },
   } as unknown as ProductsService;
+  const mockClient = {
+    query: async (sql: string, params: any[] = []) => {
+      if (sql.includes('INSERT INTO orders')) {
+        return {
+          rows: [
+            {
+              id: 1,
+              order_code: 'VFT-20261027-1001',
+              user_id: params[1] ?? null,
+              recipient_name: params[2],
+              recipient_phone: params[3],
+              shipping_address: params[4],
+              notes: params[5],
+              subtotal: params[6],
+              shipping_fee: params[7],
+              total_amount: params[8],
+              payment_method: params[9],
+              payment_status: params[10],
+              order_status: params[11],
+              proof_image_url: null,
+              proof_note: null,
+              created_at: new Date(),
+              updated_at: new Date(),
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    },
+  };
   const mockDb = {
     query: async () => ({ rows: [] }),
-    withTransaction: async () => ({ rows: [] }),
+    withTransaction: async (fn: (client: any) => Promise<any>) => fn(mockClient),
   } as unknown as any;
   return {
     productsService,

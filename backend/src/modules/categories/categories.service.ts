@@ -39,22 +39,42 @@ function toCategory(row: CategoryRow): CategoryItem {
 
 @Injectable()
 export class CategoriesService {
+  private cacheAll: CategoryItem[] | null = null;
+  private cacheTree: CategoryItem[] | null = null;
+  private cacheExpiresAt = 0;
+  private readonly TTL_MS = 60 * 1000; // 60 seconds TTL
+
   constructor(private readonly database: DatabaseService) {}
 
+  public clearCache(): void {
+    this.cacheAll = null;
+    this.cacheTree = null;
+    this.cacheExpiresAt = 0;
+  }
+
   async findAll(): Promise<CategoryItem[]> {
+    if (this.cacheAll && Date.now() < this.cacheExpiresAt) {
+      return this.cacheAll;
+    }
     const result = await this.database.query<CategoryRow>(
       'SELECT id, parent_id, name, slug, description, sort_order FROM categories ORDER BY sort_order, id',
     );
-    return result.rows.map(toCategory);
+    this.cacheAll = result.rows.map(toCategory);
+    this.cacheExpiresAt = Date.now() + this.TTL_MS;
+    return this.cacheAll;
   }
 
   async findTree(): Promise<CategoryItem[]> {
+    if (this.cacheTree && Date.now() < this.cacheExpiresAt) {
+      return this.cacheTree;
+    }
     const all = await this.findAll();
     const parents = all.filter((c) => c.parentId === null);
-    return parents.map((parent) => ({
+    this.cacheTree = parents.map((parent) => ({
       ...parent,
       subcategories: all.filter((c) => c.parentId === parent.id),
     }));
+    return this.cacheTree;
   }
 
   async findBySlug(slug: string): Promise<CategoryItem | null> {
@@ -94,6 +114,7 @@ export class CategoriesService {
         dto.sortOrder ?? 0,
       ],
     );
+    this.clearCache();
     return toCategory(result.rows[0]);
   }
 
@@ -132,6 +153,7 @@ export class CategoriesService {
         dto.sortOrder ?? null,
       ],
     );
+    this.clearCache();
     return toCategory(result.rows[0]);
   }
 
@@ -165,5 +187,6 @@ export class CategoriesService {
     if (!result.rowCount) {
       throw new NotFoundException(`Danh mục #${id} không tồn tại.`);
     }
+    this.clearCache();
   }
 }

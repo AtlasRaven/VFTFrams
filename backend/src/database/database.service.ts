@@ -23,7 +23,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           process.env.DB_SSL === 'false'
             ? false
             : { rejectUnauthorized: false },
-        max: 10,
+        max: 20,
+        idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000,
       });
     } else {
@@ -34,7 +35,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         user: config.username,
         password: config.password,
         database: config.database,
-        max: 10,
+        max: 20,
+        idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
       });
     }

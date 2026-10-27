@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import axios from "axios";
@@ -15,8 +15,11 @@ import {
   MapPin,
   QrCode,
   ShieldCheck,
+  RotateCcw,
+  Check,
+  Plus,
 } from "lucide-react";
-import type { Order } from "../../types";
+import type { Order, UserAddress } from "../../types";
 import { VietQRDisplay } from "../../components/payment/VietQRDisplay";
 
 export default function CheckoutPage() {
@@ -24,6 +27,8 @@ export default function CheckoutPage() {
   const subtotal = getTotalAmount();
   const shippingFee = subtotal >= 150000 || subtotal === 0 ? 0 : 25000;
   const totalAmount = subtotal + shippingFee;
+
+  const { user, token, hasHydrated } = useAuthStore();
 
   const [formData, setFormData] = useState({
     recipientName: "",
@@ -39,62 +44,100 @@ export default function CheckoutPage() {
     useState<Order["paymentMethod"]>("COD");
   const [orderError, setOrderError] = useState<string | null>(null);
 
-  const { user, token, hasHydrated } = useAuthStore();
-  const [savedAddresses, setSavedAddresses] = useState<
-    Array<{
-      id: number;
-      recipientName: string;
-      phoneNumber: string;
-      province: string;
-      district: string;
-      ward: string;
-      streetAddress: string;
-      isDefault: boolean;
-    }>
-  >([]);
+  const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | "custom">("custom");
+  const [saveAddressToBook, setSaveAddressToBook] = useState(true);
   const [autoFilledNotice, setAutoFilledNotice] = useState<string | null>(null);
 
-  // Auto-fill shipping info from user profile and saved addresses
+  // Sync profile info directly into textfields immediately upon hydration
+  const syncFromProfile = useCallback((addrs?: UserAddress[]) => {
+    if (!user) return;
+
+    let targetName = user.fullName || "";
+    let targetPhone = user.phoneNumber || "";
+    let targetAddress = "";
+
+    const list = addrs !== undefined ? addrs : savedAddresses;
+    if (list && list.length > 0) {
+      const def = list.find((a) => a.isDefault) || list[0];
+      setSelectedAddressId(def.id);
+      targetAddress = [def.streetAddress, def.ward, def.district, def.province]
+        .filter(Boolean)
+        .join(", ");
+      if (def.recipientName) targetName = def.recipientName;
+      if (def.phoneNumber) targetPhone = def.phoneNumber;
+    } else {
+      setSelectedAddressId("custom");
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      recipientName: targetName,
+      recipientPhone: targetPhone,
+      shippingAddress: targetAddress || prev.shippingAddress,
+    }));
+
+    setAutoFilledNotice(
+      `Đã tự động điền thông tin đặt hàng từ hồ sơ tài khoản "${user.fullName}".`,
+    );
+  }, [user, savedAddresses]);
+
+  // Auto-fill shipping info from user profile and saved addresses on load
   useEffect(() => {
     if (!hasHydrated || !user) return;
 
-    let prefillName = user.fullName || "";
-    let prefillPhone = user.phoneNumber || "";
-    let prefillAddress = "";
+    // Immediately prefill name and phone from auth store
+    setFormData((prev) => ({
+      ...prev,
+      recipientName: prev.recipientName || user.fullName || "",
+      recipientPhone: prev.recipientPhone || user.phoneNumber || "",
+    }));
 
+    // Fetch user's saved addresses and fresh profile
     userService
       .getAddresses()
       .then((addrs) => {
-        if (addrs && addrs.length > 0) {
-          setSavedAddresses(addrs);
-          const def = addrs.find((a) => a.isDefault) || addrs[0];
-          prefillAddress = `${def.streetAddress}, ${def.ward}, ${def.district}, ${def.province}`;
-          if (def.recipientName) prefillName = def.recipientName;
-          if (def.phoneNumber) prefillPhone = def.phoneNumber;
-        }
-
-        setFormData((prev) => ({
-          ...prev,
-          recipientName: prev.recipientName || prefillName,
-          recipientPhone: prev.recipientPhone || prefillPhone,
-          shippingAddress: prev.shippingAddress || prefillAddress,
-        }));
-
-        setAutoFilledNotice(
-          `Đã tự động lấy thông tin giao hàng từ tài khoản "${user.fullName}".`,
-        );
+        setSavedAddresses(addrs || []);
+        syncFromProfile(addrs || []);
       })
-      .catch(() => {
-        setFormData((prev) => ({
-          ...prev,
-          recipientName: prev.recipientName || prefillName,
-          recipientPhone: prev.recipientPhone || prefillPhone,
-        }));
-        setAutoFilledNotice(
-          `Đã tự động lấy thông tin giao hàng từ tài khoản "${user.fullName}".`,
-        );
+      .catch((err) => {
+        console.warn("Lỗi tải sổ địa chỉ:", err);
+        syncFromProfile([]);
       });
-  }, [hasHydrated, user]);
+  }, [hasHydrated, user, syncFromProfile]);
+
+  const handleSelectAddress = (addrId: number | "custom") => {
+    setSelectedAddressId(addrId);
+    if (addrId === "custom") {
+      setFormData((prev) => ({
+        ...prev,
+        recipientName: user?.fullName || prev.recipientName,
+        recipientPhone: user?.phoneNumber || prev.recipientPhone,
+        shippingAddress: "",
+      }));
+      return;
+    }
+
+    const selected = savedAddresses.find((a) => a.id === addrId);
+    if (selected) {
+      const fullAddr = [
+        selected.streetAddress,
+        selected.ward,
+        selected.district,
+        selected.province,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      setFormData((prev) => ({
+        ...prev,
+        recipientName: selected.recipientName || user?.fullName || prev.recipientName,
+        recipientPhone: selected.phoneNumber || user?.phoneNumber || prev.recipientPhone,
+        shippingAddress: fullAddr,
+      }));
+      setAutoFilledNotice(`Đang sử dụng địa chỉ đã lưu của ${selected.recipientName}.`);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,10 +148,10 @@ export default function CheckoutPage() {
     setSubmittedPaymentMethod(formData.paymentMethod);
     try {
       const order = await orderService.create({
-        recipientName: formData.recipientName,
-        recipientPhone: formData.recipientPhone,
-        shippingAddress: formData.shippingAddress,
-        notes: formData.notes,
+        recipientName: formData.recipientName.trim(),
+        recipientPhone: formData.recipientPhone.trim(),
+        shippingAddress: formData.shippingAddress.trim(),
+        notes: formData.notes.trim(),
         paymentMethod: formData.paymentMethod,
         items: items.map((item) => ({
           productId: item.product.id,
@@ -119,6 +162,23 @@ export default function CheckoutPage() {
             (item.product.salePrice ?? item.product.price) * item.quantity,
         })),
       });
+
+      // If user is authenticated and opted to save custom address to book
+      if (
+        user &&
+        saveAddressToBook &&
+        (selectedAddressId === "custom" || savedAddresses.length === 0) &&
+        formData.shippingAddress.trim()
+      ) {
+        userService
+          .addAddress({
+            recipientName: formData.recipientName.trim(),
+            phoneNumber: formData.recipientPhone.trim(),
+            streetAddress: formData.shippingAddress.trim(),
+            isDefault: savedAddresses.length === 0,
+          })
+          .catch((addrErr) => console.warn("Lưu địa chỉ vào sổ phụ thất bại:", addrErr));
+      }
 
       setCreatedOrderCode(order.orderCode);
       clearCart();
@@ -249,53 +309,141 @@ export default function CheckoutPage() {
             <h2 className="text-lg font-bold text-gray-900">
               Thông Tin Giao Hàng
             </h2>
-            {autoFilledNotice && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-[#2E7D32] border border-emerald-200 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-[#2E7D32]" />
-                <span>Đã lấy từ hồ sơ cá nhân</span>
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => syncFromProfile()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
+                  title="Điền lại thông tin mặc định từ hồ sơ cá nhân"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Điền lại từ hồ sơ</span>
+                </button>
+              )}
+              {autoFilledNotice && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-[#2E7D32] border border-emerald-200 text-xs font-semibold">
+                  <Sparkles className="w-3.5 h-3.5 text-[#2E7D32]" />
+                  <span>Tự động điền</span>
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Profile Autofill Banner / Address Selector */}
+          {/* Guest notification banner */}
+          {!user && (
+            <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <span className="flex items-center gap-2 font-medium">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Bạn đã có tài khoản VFT Farms? Đăng nhập để tự động điền họ tên, số điện thoại và sổ địa chỉ.</span>
+              </span>
+              <Link
+                href="/auth?mode=login&redirect=/checkout"
+                className="px-3.5 py-1.5 rounded-lg bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-bold text-xs shrink-0 text-center transition-colors shadow-xs"
+              >
+                Đăng nhập ngay
+              </Link>
+            </div>
+          )}
+
+          {/* Profile Autofill Banner & Saved Address Cards */}
           {user && (
-            <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-900 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold flex items-center gap-1.5">
+            <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-900 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-[#2E7D32] shrink-0" />
                   {autoFilledNotice ||
-                    `Đang dùng thông tin tài khoản: ${user.fullName}`}
+                    `Đang sử dụng thông tin tài khoản: ${user.fullName}`}
                 </span>
+                <Link
+                  href="/profile"
+                  className="text-emerald-700 hover:text-emerald-900 font-bold hover:underline inline-flex items-center gap-1 text-[11px]"
+                >
+                  <span>Quản lý sổ địa chỉ</span>
+                  <span>→</span>
+                </Link>
               </div>
+
               {savedAddresses.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-emerald-200/60">
-                  <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
+                <div className="space-y-2 pt-2 border-t border-emerald-200/70">
+                  <div className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5" />
-                    Chọn từ sổ địa chỉ:
-                  </span>
-                  <select
-                    onChange={(e) => {
-                      const addrId = Number(e.target.value);
-                      const selected = savedAddresses.find((a) => a.id === addrId);
-                      if (selected) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          recipientName: selected.recipientName || prev.recipientName,
-                          recipientPhone: selected.phoneNumber || prev.recipientPhone,
-                          shippingAddress: `${selected.streetAddress}, ${selected.ward}, ${selected.district}, ${selected.province}`,
-                        }));
-                      }
-                    }}
-                    className="text-xs font-medium py-1 px-2.5 bg-white border border-emerald-300 rounded-lg text-emerald-800 cursor-pointer"
-                  >
-                    <option value="">-- Danh sách sổ địa chỉ ({savedAddresses.length}) --</option>
-                    {savedAddresses.map((addr) => (
-                      <option key={addr.id} value={addr.id}>
-                        {addr.streetAddress}, {addr.district} ({addr.recipientName}){" "}
-                        {addr.isDefault ? "[Mặc định]" : ""}
-                      </option>
-                    ))}
-                  </select>
+                    <span>Chọn địa chỉ nhận hàng có sẵn:</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {savedAddresses.map((addr) => {
+                      const fullAddr = [
+                        addr.streetAddress,
+                        addr.ward,
+                        addr.district,
+                        addr.province,
+                      ]
+                        .filter(Boolean)
+                        .join(", ");
+
+                      const isSelected = selectedAddressId === addr.id;
+
+                      return (
+                        <div
+                          key={addr.id}
+                          onClick={() => handleSelectAddress(addr.id)}
+                          className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all flex items-start gap-2.5 ${
+                            isSelected
+                              ? "bg-white border-[#2E7D32] ring-1 ring-[#2E7D32] shadow-xs"
+                              : "bg-white/80 border-emerald-200 hover:border-emerald-400"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="checkoutAddressChoice"
+                            checked={isSelected}
+                            onChange={() => handleSelectAddress(addr.id)}
+                            className="mt-0.5 text-[#2E7D32] focus:ring-[#2E7D32] cursor-pointer"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-gray-900 truncate">
+                                {addr.recipientName || user.fullName}
+                              </span>
+                              <span className="text-gray-500">
+                                {addr.phoneNumber || user.phoneNumber}
+                              </span>
+                              {addr.isDefault && (
+                                <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-[#2E7D32] text-[10px] font-bold border border-emerald-300">
+                                  Mặc định
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-gray-600 truncate mt-0.5 text-[11px]">
+                              {fullAddr}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    <div
+                      onClick={() => handleSelectAddress("custom")}
+                      className={`p-2.5 rounded-lg border text-left cursor-pointer transition-all flex items-center gap-2.5 ${
+                        selectedAddressId === "custom"
+                          ? "bg-white border-[#2E7D32] ring-1 ring-[#2E7D32] shadow-xs"
+                          : "bg-white/80 border-emerald-200 hover:border-emerald-400"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="checkoutAddressChoice"
+                        checked={selectedAddressId === "custom"}
+                        onChange={() => handleSelectAddress("custom")}
+                        className="text-[#2E7D32] focus:ring-[#2E7D32] cursor-pointer"
+                      />
+                      <span className="font-semibold text-gray-800 flex items-center gap-1.5 text-xs">
+                        <Plus className="w-3.5 h-3.5 text-[#2E7D32]" />
+                        <span>Sử dụng địa chỉ nhận hàng khác / nhập mới</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -304,7 +452,7 @@ export default function CheckoutPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                Họ và tên *
+                Họ và tên người nhận *
               </label>
               <input
                 type="text"
@@ -320,7 +468,7 @@ export default function CheckoutPage() {
 
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                Số điện thoại *
+                Số điện thoại liên hệ *
               </label>
               <input
                 type="tel"
@@ -343,13 +491,35 @@ export default function CheckoutPage() {
               type="text"
               required
               value={formData.shippingAddress}
-              onChange={(e) =>
-                setFormData({ ...formData, shippingAddress: e.target.value })
-              }
+              onChange={(e) => {
+                setFormData({ ...formData, shippingAddress: e.target.value });
+                if (selectedAddressId !== "custom") {
+                  setSelectedAddressId("custom");
+                }
+              }}
               placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
               className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2E7D32] focus:border-[#2E7D32]"
             />
           </div>
+
+          {/* Option to save address to user's address book */}
+          {user && (selectedAddressId === "custom" || savedAddresses.length === 0) && (
+            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50/50 border border-emerald-200">
+              <input
+                type="checkbox"
+                id="saveAddressBookCheckbox"
+                checked={saveAddressToBook}
+                onChange={(e) => setSaveAddressToBook(e.target.checked)}
+                className="w-4 h-4 text-[#2E7D32] rounded focus:ring-[#2E7D32] cursor-pointer"
+              />
+              <label
+                htmlFor="saveAddressBookCheckbox"
+                className="text-xs font-medium text-emerald-900 cursor-pointer"
+              >
+                Lưu địa chỉ này vào sổ địa chỉ tài khoản của tôi để sử dụng cho lần mua sắm tiếp theo
+              </label>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">

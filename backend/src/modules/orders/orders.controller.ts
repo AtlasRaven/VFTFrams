@@ -43,18 +43,24 @@ export class OrdersController {
   private extractUser(authHeader?: string): { id: number; role?: string } | undefined {
     if (!authHeader) return undefined;
     const parts = authHeader.trim().split(/\s+/);
-    if (parts.length !== 2 || parts[0] !== 'Bearer') return undefined;
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      throw new UnauthorizedException('Token xác thực không đúng định dạng');
+    }
 
     try {
       const decoded = jwt.verify(parts[1], JWT_CONFIG.secret) as any;
-      if (typeof decoded !== 'object' || decoded === null) return undefined;
+      if (typeof decoded !== 'object' || decoded === null) {
+        throw new UnauthorizedException('Token xác thực không hợp lệ');
+      }
 
       const subject = decoded.sub ?? decoded.id;
       const userId = Number(subject);
-      if (!Number.isSafeInteger(userId) || userId <= 0) return undefined;
+      if (!Number.isSafeInteger(userId) || userId <= 0) {
+        throw new UnauthorizedException('Token xác thực không hợp lệ');
+      }
       return { id: userId, role: decoded.role };
     } catch {
-      return undefined;
+      throw new UnauthorizedException('Token xác thực không hợp lệ hoặc đã hết hạn');
     }
   }
 
